@@ -86,7 +86,7 @@ HTTP POST
 ### Backend
 
 ```bash
-# 1. Démarrer Postgres (port 5434)
+# 1. Démarrer Postgres (port 5444)
 docker compose up -d
 
 # 2. Lancer l'app
