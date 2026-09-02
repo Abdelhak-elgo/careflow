@@ -1,0 +1,75 @@
+<section class="space-y-6">
+  <div class="flex items-start justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold text-slate-900">Revue administrateur</h1>
+      <p class="text-sm text-slate-500">
+        Demandes en attente de décision manuelle. La règle métier n'a pas pu trancher automatiquement.
+      </p>
+    </div>
+    <button
+      type="button"
+      (click)="reload()"
+      class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+    >Rafraîchir</button>
+  </div>
+
+  <div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+    @if (loading()) {
+      <div class="p-8 text-center text-slate-500 text-sm">Chargement…</div>
+    } @else if (isEmpty()) {
+      <div class="p-8 text-center text-slate-500 text-sm">Aucune demande en attente. 🎉</div>
+    } @else {
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-slate-600 text-left">
+          <tr>
+            <th class="px-4 py-3 font-medium">Patient</th>
+            <th class="px-4 py-3 font-medium">Date soin</th>
+            <th class="px-4 py-3 font-medium">Type</th>
+            <th class="px-4 py-3 font-medium text-right">Montant</th>
+            <th class="px-4 py-3 font-medium">Décision manuelle</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          @for (claim of rows(); track claim.id) {
+            <tr class="hover:bg-slate-50 align-top">
+              <td class="px-4 py-3 font-mono text-xs text-slate-700">{{ claim.patientId }}</td>
+              <td class="px-4 py-3">{{ claim.careDate | date: 'dd/MM/yyyy' }}</td>
+              <td class="px-4 py-3">{{ claim.careType }}</td>
+              <td class="px-4 py-3 text-right tabular-nums">
+                {{ claim.amount | number: '1.2-2' }} {{ claim.currency }}
+              </td>
+              <td class="px-4 py-3">
+                <form [formGroup]="formFor(claim.id)" (ngSubmit)="decide(claim.id)" class="flex flex-col gap-2 min-w-[320px]">
+                  <div class="flex gap-2">
+                    <select
+                      formControlName="decision"
+                      class="rounded-md border border-slate-300 px-2 py-1 text-sm bg-white"
+                    >
+                      <option value="APPROVED">APPROVED</option>
+                      <option value="REJECTED">REJECTED</option>
+                    </select>
+                    <input
+                      type="text"
+                      formControlName="reason"
+                      maxlength="500"
+                      placeholder="Motif (obligatoire)"
+                      class="flex-1 rounded-md border border-slate-300 px-2 py-1 text-sm"
+                    />
+                    <button
+                      type="submit"
+                      [disabled]="submitting() === claim.id"
+                      class="rounded-md bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                    >{{ submitting() === claim.id ? '…' : 'OK' }}</button>
+                  </div>
+                  @if (formFor(claim.id).controls.reason.touched && formFor(claim.id).controls.reason.invalid) {
+                    <p class="text-xs text-red-600">Le motif est obligatoire (max 500 caractères).</p>
+                  }
+                </form>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+</section>

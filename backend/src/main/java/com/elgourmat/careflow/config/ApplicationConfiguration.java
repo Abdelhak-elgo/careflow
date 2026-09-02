@@ -1,9 +1,11 @@
 package com.elgourmat.careflow.config;
 
+import com.elgourmat.careflow.application.port.in.DecideClaimUseCase;
 import com.elgourmat.careflow.application.port.in.GetClaimUseCase;
 import com.elgourmat.careflow.application.port.in.ListClaimsUseCase;
 import com.elgourmat.careflow.application.port.in.SubmitClaimUseCase;
 import com.elgourmat.careflow.application.port.out.ClaimRepository;
+import com.elgourmat.careflow.application.service.DecideClaimService;
 import com.elgourmat.careflow.application.service.GetClaimService;
 import com.elgourmat.careflow.application.service.ListClaimsService;
 import com.elgourmat.careflow.application.service.SubmitClaimService;
@@ -33,5 +35,10 @@ public class ApplicationConfiguration {
     @Bean
     GetClaimUseCase getClaimUseCase(ClaimRepository claimRepository) {
         return new GetClaimService(claimRepository);
+    }
+
+    @Bean
+    DecideClaimUseCase decideClaimUseCase(ClaimRepository claimRepository, Clock clock) {
+        return new DecideClaimService(claimRepository, clock);
     }
 }

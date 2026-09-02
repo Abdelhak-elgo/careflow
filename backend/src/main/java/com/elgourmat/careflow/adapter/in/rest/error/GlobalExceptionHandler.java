@@ -1,6 +1,7 @@
 package com.elgourmat.careflow.adapter.in.rest.error;
 
 import com.elgourmat.careflow.domain.exception.ClaimNotFoundException;
+import com.elgourmat.careflow.domain.exception.IllegalClaimStateException;
 import com.elgourmat.careflow.domain.exception.InvalidClaimAmountException;
 import com.elgourmat.careflow.domain.exception.InvalidClaimDateException;
 import org.slf4j.Logger;
@@ -46,6 +47,15 @@ public class GlobalExceptionHandler {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
         pd.setTitle("Claim not found");
         pd.setProperty("claimId", ex.claimId().toString());
+        return pd;
+    }
+
+    @ExceptionHandler(IllegalClaimStateException.class)
+    public ProblemDetail handleIllegalState(IllegalClaimStateException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        pd.setTitle("Illegal claim state");
+        pd.setProperty("claimId", ex.claimId().toString());
+        pd.setProperty("currentStatus", ex.currentStatus().name());
         return pd;
     }
 

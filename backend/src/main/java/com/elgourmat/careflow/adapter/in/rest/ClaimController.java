@@ -1,9 +1,11 @@
 package com.elgourmat.careflow.adapter.in.rest;
 
+import com.elgourmat.careflow.adapter.in.rest.dto.AdminDecisionRequest;
 import com.elgourmat.careflow.adapter.in.rest.dto.ClaimResponse;
 import com.elgourmat.careflow.adapter.in.rest.dto.SubmitClaimRequest;
 import com.elgourmat.careflow.adapter.in.rest.mapper.ClaimRestMapper;
 import com.elgourmat.careflow.adapter.out.persistence.IdempotencyKeyStore;
+import com.elgourmat.careflow.application.port.in.DecideClaimUseCase;
 import com.elgourmat.careflow.application.port.in.GetClaimUseCase;
 import com.elgourmat.careflow.application.port.in.ListClaimsUseCase;
 import com.elgourmat.careflow.application.port.in.SubmitClaimUseCase;
@@ -20,6 +22,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -42,6 +45,7 @@ public class ClaimController {
     private final SubmitClaimUseCase submitClaimUseCase;
     private final ListClaimsUseCase listClaimsUseCase;
     private final GetClaimUseCase getClaimUseCase;
+    private final DecideClaimUseCase decideClaimUseCase;
     private final ClaimRestMapper mapper;
     private final IdempotencyKeyStore idempotencyKeys;
 
@@ -49,12 +53,14 @@ public class ClaimController {
             SubmitClaimUseCase submitClaimUseCase,
             ListClaimsUseCase listClaimsUseCase,
             GetClaimUseCase getClaimUseCase,
+            DecideClaimUseCase decideClaimUseCase,
             ClaimRestMapper mapper,
             IdempotencyKeyStore idempotencyKeys
     ) {
         this.submitClaimUseCase = submitClaimUseCase;
         this.listClaimsUseCase = listClaimsUseCase;
         this.getClaimUseCase = getClaimUseCase;
+        this.decideClaimUseCase = decideClaimUseCase;
         this.mapper = mapper;
         this.idempotencyKeys = idempotencyKeys;
     }
@@ -126,5 +132,24 @@ public class ClaimController {
     ) {
         log.info("get claim by user={} id={}", userId, id);
         return mapper.toResponse(getClaimUseCase.getById(id));
+    }
+
+    @PatchMapping("/{id}/decision")
+    @Operation(
+            summary = "Trancher manuellement une demande PENDING",
+            description = "Route admin. Le domaine impose que la demande soit encore PENDING et que la cible soit APPROVED ou REJECTED."
+    )
+    @ApiResponse(responseCode = "200", description = "Demande décidée manuellement")
+    @ApiResponse(responseCode = "404", description = "Demande inconnue (RFC 7807 ProblemDetail)")
+    @ApiResponse(responseCode = "409", description = "Demande déjà tranchée ou cible invalide (RFC 7807 ProblemDetail)")
+    public ClaimResponse decide(
+            @Parameter(description = "Identifiant UUID de la demande") @PathVariable UUID id,
+            @Valid @RequestBody AdminDecisionRequest request,
+            @Parameter(in = ParameterIn.HEADER, name = "X-User-Id", description = "Admin identifié (MVP)")
+            @RequestHeader(name = "X-User-Id", required = false) String userId
+    ) {
+        log.info("decide claim by admin={} id={} decision={}", userId, id, request.decision());
+        Claim decided = decideClaimUseCase.decide(mapper.toDecideCommand(id, request));
+        return mapper.toResponse(decided);
     }
 }

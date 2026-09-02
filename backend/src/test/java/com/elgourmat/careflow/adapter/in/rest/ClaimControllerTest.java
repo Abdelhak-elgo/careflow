@@ -3,6 +3,7 @@ package com.elgourmat.careflow.adapter.in.rest;
 import com.elgourmat.careflow.adapter.in.rest.error.GlobalExceptionHandler;
 import com.elgourmat.careflow.adapter.in.rest.mapper.ClaimRestMapperImpl;
 import com.elgourmat.careflow.adapter.out.persistence.IdempotencyKeyStore;
+import com.elgourmat.careflow.application.port.in.DecideClaimUseCase;
 import com.elgourmat.careflow.application.port.in.GetClaimUseCase;
 import com.elgourmat.careflow.application.port.in.ListClaimsUseCase;
 import com.elgourmat.careflow.application.port.in.SubmitClaimUseCase;
@@ -56,6 +57,9 @@ class ClaimControllerTest {
 
     @MockitoBean
     private GetClaimUseCase getClaimUseCase;
+
+    @MockitoBean
+    private DecideClaimUseCase decideClaimUseCase;
 
     @MockitoBean
     private IdempotencyKeyStore idempotencyKeys;
@@ -215,6 +219,55 @@ class ClaimControllerTest {
 
         org.mockito.Mockito.verify(submitClaimUseCase, org.mockito.Mockito.never()).submit(any(SubmitClaimCommand.class));
         org.mockito.Mockito.verify(idempotencyKeys, org.mockito.Mockito.never()).store(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(UUID.class));
+    }
+
+    @Test
+    void PATCH_decision_returns_200_and_decides_claim() throws Exception {
+        Claim decided = decidedClaim(ClaimStatus.APPROVED, "reçu OK", new BigDecimal("300"));
+        given(decideClaimUseCase.decide(any(com.elgourmat.careflow.application.port.in.DecideClaimUseCase.DecideClaimCommand.class)))
+                .willReturn(decided);
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .patch("/api/claims/{id}/decision", decided.id())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", "admin-01")
+                        .content("""
+                                { "decision": "APPROVED", "reason": "reçu OK" }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("APPROVED"))
+                .andExpect(jsonPath("$.decisionReason").value("reçu OK"));
+    }
+
+    @Test
+    void PATCH_decision_with_blank_reason_returns_400() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .patch("/api/claims/{id}/decision", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "decision": "APPROVED", "reason": "" }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.violations[0].field").value("reason"));
+    }
+
+    @Test
+    void PATCH_decision_on_already_decided_claim_returns_409_problem_detail() throws Exception {
+        UUID id = UUID.randomUUID();
+        given(decideClaimUseCase.decide(any(com.elgourmat.careflow.application.port.in.DecideClaimUseCase.DecideClaimCommand.class)))
+                .willThrow(new com.elgourmat.careflow.domain.exception.IllegalClaimStateException(
+                        id, ClaimStatus.APPROVED, "Claim " + id + " is already APPROVED and cannot be re-decided"));
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .patch("/api/claims/{id}/decision", id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "decision": "REJECTED", "reason": "trying to override" }
+                                """))
+                .andExpect(status().isConflict())
+                .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
+                .andExpect(jsonPath("$.title").value("Illegal claim state"))
+                .andExpect(jsonPath("$.currentStatus").value("APPROVED"));
     }
 
     private static String payloadJson(String amount) {
