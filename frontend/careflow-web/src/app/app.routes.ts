@@ -23,5 +23,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/claim-detail/claim-detail').then((m) => m.ClaimDetail),
     title: 'CareFlow — Détail demande',
   },
+  {
+    path: 'admin/audit',
+    loadComponent: () => import('./features/admin-audit/admin-audit').then((m) => m.AdminAudit),
+    canActivate: [adminGuard],
+    title: 'CareFlow — Audit',
+  },
   { path: '**', redirectTo: '' },
 ];

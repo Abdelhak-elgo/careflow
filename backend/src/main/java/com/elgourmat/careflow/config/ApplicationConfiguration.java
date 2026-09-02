@@ -5,6 +5,7 @@ import com.elgourmat.careflow.application.port.in.GetClaimUseCase;
 import com.elgourmat.careflow.application.port.in.ListClaimsUseCase;
 import com.elgourmat.careflow.application.port.in.SubmitClaimUseCase;
 import com.elgourmat.careflow.application.port.in.UpdateClaimUseCase;
+import com.elgourmat.careflow.application.port.out.AuditPort;
 import com.elgourmat.careflow.application.port.out.ClaimRepository;
 import com.elgourmat.careflow.application.service.DecideClaimService;
 import com.elgourmat.careflow.application.service.GetClaimService;
@@ -24,9 +25,10 @@ public class ApplicationConfiguration {
     SubmitClaimUseCase submitClaimUseCase(
             ClaimRulesEngine rulesEngine,
             ClaimRepository claimRepository,
+            AuditPort auditPort,
             Clock clock
     ) {
-        return new SubmitClaimService(rulesEngine, claimRepository, clock);
+        return new SubmitClaimService(rulesEngine, claimRepository, auditPort, clock);
     }
 
     @Bean
@@ -40,12 +42,12 @@ public class ApplicationConfiguration {
     }
 
     @Bean
-    DecideClaimUseCase decideClaimUseCase(ClaimRepository claimRepository, Clock clock) {
-        return new DecideClaimService(claimRepository, clock);
+    DecideClaimUseCase decideClaimUseCase(ClaimRepository claimRepository, AuditPort auditPort, Clock clock) {
+        return new DecideClaimService(claimRepository, auditPort, clock);
     }
 
     @Bean
-    UpdateClaimUseCase updateClaimUseCase(ClaimRepository claimRepository, Clock clock) {
-        return new UpdateClaimService(claimRepository, clock);
+    UpdateClaimUseCase updateClaimUseCase(ClaimRepository claimRepository, AuditPort auditPort, Clock clock) {
+        return new UpdateClaimService(claimRepository, auditPort, clock);
     }
 }

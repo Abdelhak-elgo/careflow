@@ -1,0 +1,64 @@
+<section class="space-y-6">
+  <div>
+    <h1 class="text-2xl font-semibold text-slate-900">Journal d'audit</h1>
+    <p class="text-sm text-slate-500">Toutes les actions utilisateur — utile pour la conformité et le débogage.</p>
+  </div>
+
+  <form [formGroup]="filterForm" (ngSubmit)="applyFilters()" class="rounded-xl border border-slate-200 bg-white p-4 grid grid-cols-4 gap-3">
+    <input formControlName="entityType" placeholder="Entity type (ex: CLAIM)" class="rounded-md border border-slate-300 px-3 py-2 text-sm" />
+    <input formControlName="entityId"   placeholder="Entity ID (UUID)" class="rounded-md border border-slate-300 px-3 py-2 text-sm" />
+    <input formControlName="actor"      placeholder="Actor (username)" class="rounded-md border border-slate-300 px-3 py-2 text-sm" />
+    <div class="flex gap-2 justify-end">
+      <button type="button" (click)="resetFilters()" class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">Réinitialiser</button>
+      <button type="submit" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700">Filtrer</button>
+    </div>
+  </form>
+
+  <div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+    @if (loading()) {
+      <div class="p-8 text-center text-slate-500 text-sm">Chargement…</div>
+    } @else if (items().length === 0) {
+      <div class="p-8 text-center text-slate-500 text-sm">Aucun événement.</div>
+    } @else {
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-slate-600 text-left">
+          <tr>
+            <th class="px-4 py-3 font-medium">Date</th>
+            <th class="px-4 py-3 font-medium">Acteur</th>
+            <th class="px-4 py-3 font-medium">Action</th>
+            <th class="px-4 py-3 font-medium">Entité</th>
+            <th class="px-4 py-3 font-medium">Détails</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          @for (e of items(); track e.id) {
+            <tr class="hover:bg-slate-50">
+              <td class="px-4 py-3 text-slate-700 tabular-nums">{{ e.occurredAt | date: 'dd/MM/yyyy HH:mm:ss' }}</td>
+              <td class="px-4 py-3 font-mono text-xs text-slate-800">{{ e.actor }}</td>
+              <td class="px-4 py-3">
+                <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium" [class]="actionBadge(e.action)">
+                  {{ e.action }}
+                </span>
+              </td>
+              <td class="px-4 py-3 font-mono text-xs text-slate-500">
+                <div>{{ e.entityType }}</div>
+                @if (e.entityId) {
+                  <div class="text-slate-400">{{ e.entityId.slice(0, 8) }}…</div>
+                }
+              </td>
+              <td class="px-4 py-3 text-slate-600 text-xs">{{ prettyDetails(e.details) }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+
+  <div class="flex items-center justify-between text-sm text-slate-500">
+    <span>{{ total() }} événements — page {{ page() + 1 }} / {{ pageCount() }}</span>
+    <div class="flex gap-2">
+      <button type="button" (click)="prev()" [disabled]="page() === 0" class="rounded-md border border-slate-300 bg-white px-3 py-1 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50">Précédent</button>
+      <button type="button" (click)="next()" [disabled]="page() + 1 >= pageCount()" class="rounded-md border border-slate-300 bg-white px-3 py-1 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50">Suivant</button>
+    </div>
+  </div>
+</section>

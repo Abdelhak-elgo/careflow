@@ -1,6 +1,7 @@
 package com.elgourmat.careflow.application.service;
 
 import com.elgourmat.careflow.application.port.in.DecideClaimUseCase.DecideClaimCommand;
+import com.elgourmat.careflow.application.port.out.AuditPort;
 import com.elgourmat.careflow.application.port.out.ClaimRepository;
 import com.elgourmat.careflow.domain.CareType;
 import com.elgourmat.careflow.domain.Claim;
@@ -37,7 +38,7 @@ class DecideClaimServiceTest {
     @BeforeEach
     void setUp() {
         repository = mock(ClaimRepository.class);
-        service = new DecideClaimService(repository, CLOCK);
+        service = new DecideClaimService(repository, mock(AuditPort.class), CLOCK);
     }
 
     @Test
