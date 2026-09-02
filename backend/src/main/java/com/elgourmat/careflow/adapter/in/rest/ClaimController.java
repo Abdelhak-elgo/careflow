@@ -3,6 +3,7 @@ package com.elgourmat.careflow.adapter.in.rest;
 import com.elgourmat.careflow.adapter.in.rest.dto.ClaimResponse;
 import com.elgourmat.careflow.adapter.in.rest.dto.SubmitClaimRequest;
 import com.elgourmat.careflow.adapter.in.rest.mapper.ClaimRestMapper;
+import com.elgourmat.careflow.adapter.out.persistence.IdempotencyKeyStore;
 import com.elgourmat.careflow.application.port.in.GetClaimUseCase;
 import com.elgourmat.careflow.application.port.in.ListClaimsUseCase;
 import com.elgourmat.careflow.application.port.in.SubmitClaimUseCase;
@@ -42,33 +43,58 @@ public class ClaimController {
     private final ListClaimsUseCase listClaimsUseCase;
     private final GetClaimUseCase getClaimUseCase;
     private final ClaimRestMapper mapper;
+    private final IdempotencyKeyStore idempotencyKeys;
 
     public ClaimController(
             SubmitClaimUseCase submitClaimUseCase,
             ListClaimsUseCase listClaimsUseCase,
             GetClaimUseCase getClaimUseCase,
-            ClaimRestMapper mapper
+            ClaimRestMapper mapper,
+            IdempotencyKeyStore idempotencyKeys
     ) {
         this.submitClaimUseCase = submitClaimUseCase;
         this.listClaimsUseCase = listClaimsUseCase;
         this.getClaimUseCase = getClaimUseCase;
         this.mapper = mapper;
+        this.idempotencyKeys = idempotencyKeys;
     }
 
     @PostMapping
     @Operation(
             summary = "Soumettre une nouvelle demande de remboursement",
-            description = "Le moteur de règles décide immédiatement du statut (APPROVED / REJECTED / PENDING)."
+            description = "Le moteur de règles décide immédiatement du statut (APPROVED / REJECTED / PENDING). "
+                    + "Si l'en-tête Idempotency-Key est fourni et déjà vu, la demande précédente est renvoyée à l'identique."
     )
     @ApiResponse(responseCode = "201", description = "Demande créée avec décision immédiate")
     @ApiResponse(responseCode = "400", description = "Payload invalide (RFC 7807 ProblemDetail)")
     public ResponseEntity<ClaimResponse> submit(
             @Valid @RequestBody SubmitClaimRequest request,
             @Parameter(in = ParameterIn.HEADER, name = "X-User-Id", description = "Identité simulée (MVP)")
-            @RequestHeader(name = "X-User-Id", required = false) String userId
+            @RequestHeader(name = "X-User-Id", required = false) String userId,
+            @Parameter(in = ParameterIn.HEADER, name = "Idempotency-Key",
+                    description = "Clé opaque ≤128 chars. Rejouer la même clé renvoie la demande initiale (TTL 24h).")
+            @RequestHeader(name = "Idempotency-Key", required = false) String idempotencyKey
     ) {
-        log.info("submit claim by user={} patient={}", userId, request.patientId());
+        log.info("submit claim by user={} patient={} idempotencyKey={}", userId, request.patientId(), idempotencyKey);
+
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            if (idempotencyKey.length() > 128) {
+                throw new IllegalArgumentException("Idempotency-Key must not exceed 128 characters");
+            }
+            Optional<UUID> cached = idempotencyKeys.lookup(idempotencyKey);
+            if (cached.isPresent()) {
+                Claim existing = getClaimUseCase.getById(cached.get());
+                log.info("idempotency hit: returning existing claim id={}", existing.id());
+                return ResponseEntity.status(HttpStatus.CREATED).body(mapper.toResponse(existing));
+            }
+        }
+
         Claim claim = submitClaimUseCase.submit(mapper.toCommand(request));
+
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            idempotencyKeys.store(idempotencyKey, claim.id());
+        }
+
         return ResponseEntity.status(HttpStatus.CREATED).body(mapper.toResponse(claim));
     }
 

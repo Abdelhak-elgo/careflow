@@ -2,6 +2,7 @@ package com.elgourmat.careflow.adapter.in.rest;
 
 import com.elgourmat.careflow.adapter.in.rest.error.GlobalExceptionHandler;
 import com.elgourmat.careflow.adapter.in.rest.mapper.ClaimRestMapperImpl;
+import com.elgourmat.careflow.adapter.out.persistence.IdempotencyKeyStore;
 import com.elgourmat.careflow.application.port.in.GetClaimUseCase;
 import com.elgourmat.careflow.application.port.in.ListClaimsUseCase;
 import com.elgourmat.careflow.application.port.in.SubmitClaimUseCase;
@@ -55,6 +56,9 @@ class ClaimControllerTest {
 
     @MockitoBean
     private GetClaimUseCase getClaimUseCase;
+
+    @MockitoBean
+    private IdempotencyKeyStore idempotencyKeys;
 
     @Test
     void POST_valid_returns_201_with_response_body() throws Exception {
@@ -164,6 +168,65 @@ class ClaimControllerTest {
         mockMvc.perform(get("/api/claims"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(2)));
+    }
+
+    @Test
+    void POST_without_idempotency_key_bypasses_store() throws Exception {
+        Claim decided = decidedClaim(ClaimStatus.APPROVED, "auto", new BigDecimal("50"));
+        given(submitClaimUseCase.submit(any(SubmitClaimCommand.class))).willReturn(decided);
+
+        mockMvc.perform(post("/api/claims")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payloadJson("50.00")))
+                .andExpect(status().isCreated());
+
+        org.mockito.Mockito.verify(idempotencyKeys, org.mockito.Mockito.never()).lookup(org.mockito.ArgumentMatchers.anyString());
+        org.mockito.Mockito.verify(idempotencyKeys, org.mockito.Mockito.never()).store(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(UUID.class));
+    }
+
+    @Test
+    void POST_with_new_idempotency_key_submits_and_stores() throws Exception {
+        Claim decided = decidedClaim(ClaimStatus.APPROVED, "auto", new BigDecimal("50"));
+        given(idempotencyKeys.lookup("ik_first")).willReturn(Optional.empty());
+        given(submitClaimUseCase.submit(any(SubmitClaimCommand.class))).willReturn(decided);
+
+        mockMvc.perform(post("/api/claims")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Idempotency-Key", "ik_first")
+                        .content(payloadJson("50.00")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(decided.id().toString()));
+
+        org.mockito.Mockito.verify(idempotencyKeys).store("ik_first", decided.id());
+    }
+
+    @Test
+    void POST_with_replayed_idempotency_key_returns_cached_claim_without_resubmitting() throws Exception {
+        Claim cached = decidedClaim(ClaimStatus.APPROVED, "auto", new BigDecimal("50"));
+        given(idempotencyKeys.lookup("ik_replay")).willReturn(Optional.of(cached.id()));
+        given(getClaimUseCase.getById(cached.id())).willReturn(cached);
+
+        mockMvc.perform(post("/api/claims")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Idempotency-Key", "ik_replay")
+                        .content(payloadJson("50.00")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(cached.id().toString()));
+
+        org.mockito.Mockito.verify(submitClaimUseCase, org.mockito.Mockito.never()).submit(any(SubmitClaimCommand.class));
+        org.mockito.Mockito.verify(idempotencyKeys, org.mockito.Mockito.never()).store(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(UUID.class));
+    }
+
+    private static String payloadJson(String amount) {
+        return """
+                {
+                  "patientId": "patient-42",
+                  "careType": "DENTAL",
+                  "amount": %s,
+                  "currency": "EUR",
+                  "careDate": "2026-08-15"
+                }
+                """.formatted(amount);
     }
 
     private static Claim decidedClaim(ClaimStatus status, String reason, BigDecimal amount) {
