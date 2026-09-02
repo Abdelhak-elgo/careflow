@@ -3,12 +3,14 @@ package com.elgourmat.careflow.adapter.in.rest;
 import com.elgourmat.careflow.adapter.in.rest.dto.AdminDecisionRequest;
 import com.elgourmat.careflow.adapter.in.rest.dto.ClaimResponse;
 import com.elgourmat.careflow.adapter.in.rest.dto.SubmitClaimRequest;
+import com.elgourmat.careflow.adapter.in.rest.dto.UpdateClaimRequest;
 import com.elgourmat.careflow.adapter.in.rest.mapper.ClaimRestMapper;
 import com.elgourmat.careflow.adapter.out.persistence.IdempotencyKeyStore;
 import com.elgourmat.careflow.application.port.in.DecideClaimUseCase;
 import com.elgourmat.careflow.application.port.in.GetClaimUseCase;
 import com.elgourmat.careflow.application.port.in.ListClaimsUseCase;
 import com.elgourmat.careflow.application.port.in.SubmitClaimUseCase;
+import com.elgourmat.careflow.application.port.in.UpdateClaimUseCase;
 import com.elgourmat.careflow.domain.Claim;
 import com.elgourmat.careflow.domain.ClaimStatus;
 import io.swagger.v3.oas.annotations.Operation;
@@ -47,6 +49,7 @@ public class ClaimController {
     private final ListClaimsUseCase listClaimsUseCase;
     private final GetClaimUseCase getClaimUseCase;
     private final DecideClaimUseCase decideClaimUseCase;
+    private final UpdateClaimUseCase updateClaimUseCase;
     private final ClaimRestMapper mapper;
     private final IdempotencyKeyStore idempotencyKeys;
 
@@ -55,6 +58,7 @@ public class ClaimController {
             ListClaimsUseCase listClaimsUseCase,
             GetClaimUseCase getClaimUseCase,
             DecideClaimUseCase decideClaimUseCase,
+            UpdateClaimUseCase updateClaimUseCase,
             ClaimRestMapper mapper,
             IdempotencyKeyStore idempotencyKeys
     ) {
@@ -62,6 +66,7 @@ public class ClaimController {
         this.listClaimsUseCase = listClaimsUseCase;
         this.getClaimUseCase = getClaimUseCase;
         this.decideClaimUseCase = decideClaimUseCase;
+        this.updateClaimUseCase = updateClaimUseCase;
         this.mapper = mapper;
         this.idempotencyKeys = idempotencyKeys;
     }
@@ -133,6 +138,27 @@ public class ClaimController {
     ) {
         log.info("get claim by user={} id={}", userId, id);
         return mapper.toResponse(getClaimUseCase.getById(id));
+    }
+
+    @PatchMapping("/{id}")
+    @Operation(
+            summary = "Mettre à jour une demande PENDING",
+            description = "Le patient peut corriger patientId et careDate tant que la demande est PENDING. "
+                    + "Les champs métier (careType, amount, currency) sont figés pour préserver l'intégrité de l'audit."
+    )
+    @ApiResponse(responseCode = "200", description = "Demande mise à jour")
+    @ApiResponse(responseCode = "400", description = "Payload invalide (RFC 7807 ProblemDetail)")
+    @ApiResponse(responseCode = "404", description = "Demande inconnue (RFC 7807 ProblemDetail)")
+    @ApiResponse(responseCode = "409", description = "Demande déjà tranchée, non éditable (RFC 7807 ProblemDetail)")
+    public ClaimResponse update(
+            @Parameter(description = "Identifiant UUID de la demande") @PathVariable UUID id,
+            @Valid @RequestBody UpdateClaimRequest request,
+            @Parameter(in = ParameterIn.HEADER, name = "X-User-Id")
+            @RequestHeader(name = "X-User-Id", required = false) String userId
+    ) {
+        log.info("update claim by user={} id={} patientId={} careDate={}", userId, id, request.patientId(), request.careDate());
+        Claim updated = updateClaimUseCase.update(mapper.toUpdateCommand(id, request));
+        return mapper.toResponse(updated);
     }
 
     @PatchMapping("/{id}/decision")

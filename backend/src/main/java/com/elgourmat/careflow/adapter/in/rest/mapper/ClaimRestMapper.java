@@ -3,8 +3,10 @@ package com.elgourmat.careflow.adapter.in.rest.mapper;
 import com.elgourmat.careflow.adapter.in.rest.dto.AdminDecisionRequest;
 import com.elgourmat.careflow.adapter.in.rest.dto.ClaimResponse;
 import com.elgourmat.careflow.adapter.in.rest.dto.SubmitClaimRequest;
+import com.elgourmat.careflow.adapter.in.rest.dto.UpdateClaimRequest;
 import com.elgourmat.careflow.application.port.in.DecideClaimUseCase.DecideClaimCommand;
 import com.elgourmat.careflow.application.port.in.SubmitClaimUseCase.SubmitClaimCommand;
+import com.elgourmat.careflow.application.port.in.UpdateClaimUseCase.UpdateClaimCommand;
 import com.elgourmat.careflow.domain.Claim;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -25,5 +27,9 @@ public interface ClaimRestMapper {
 
     default DecideClaimCommand toDecideCommand(UUID claimId, AdminDecisionRequest request) {
         return new DecideClaimCommand(claimId, request.decision(), request.reason());
+    }
+
+    default UpdateClaimCommand toUpdateCommand(UUID claimId, UpdateClaimRequest request) {
+        return new UpdateClaimCommand(claimId, request.patientId(), request.careDate());
     }
 }

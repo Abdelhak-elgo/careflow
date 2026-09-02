@@ -34,6 +34,11 @@ export interface AdminDecisionRequest {
   reason: string;
 }
 
+export interface UpdateClaimRequest {
+  patientId: string;
+  careDate: string;
+}
+
 export interface ProblemDetail {
   type?: string;
   title?: string;

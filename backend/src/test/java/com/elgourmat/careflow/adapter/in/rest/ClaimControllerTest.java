@@ -8,6 +8,7 @@ import com.elgourmat.careflow.application.port.in.GetClaimUseCase;
 import com.elgourmat.careflow.application.port.in.ListClaimsUseCase;
 import com.elgourmat.careflow.application.port.in.SubmitClaimUseCase;
 import com.elgourmat.careflow.application.port.in.SubmitClaimUseCase.SubmitClaimCommand;
+import com.elgourmat.careflow.application.port.in.UpdateClaimUseCase;
 import com.elgourmat.careflow.domain.CareType;
 import com.elgourmat.careflow.domain.Claim;
 import com.elgourmat.careflow.domain.ClaimStatus;
@@ -64,6 +65,9 @@ class ClaimControllerTest {
 
     @MockitoBean
     private DecideClaimUseCase decideClaimUseCase;
+
+    @MockitoBean
+    private UpdateClaimUseCase updateClaimUseCase;
 
     @MockitoBean
     private IdempotencyKeyStore idempotencyKeys;
@@ -272,6 +276,34 @@ class ClaimControllerTest {
                 .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
                 .andExpect(jsonPath("$.title").value("Illegal claim state"))
                 .andExpect(jsonPath("$.currentStatus").value("APPROVED"));
+    }
+
+    @Test
+    void PATCH_update_returns_200_and_persists_new_fields() throws Exception {
+        Claim updated = decidedClaim(ClaimStatus.PENDING, null, new BigDecimal("300"));
+        given(updateClaimUseCase.update(any(UpdateClaimUseCase.UpdateClaimCommand.class))).willReturn(updated);
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .patch("/api/claims/{id}", updated.id())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", "patient-42")
+                        .content("""
+                                { "patientId": "patient-99", "careDate": "2026-08-20" }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(updated.id().toString()));
+    }
+
+    @Test
+    void PATCH_update_with_blank_patient_returns_400() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .patch("/api/claims/{id}", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "patientId": "", "careDate": "2026-08-20" }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.violations[0].field").value("patientId"));
     }
 
     private static String payloadJson(String amount) {

@@ -4,11 +4,13 @@ import com.elgourmat.careflow.application.port.in.DecideClaimUseCase;
 import com.elgourmat.careflow.application.port.in.GetClaimUseCase;
 import com.elgourmat.careflow.application.port.in.ListClaimsUseCase;
 import com.elgourmat.careflow.application.port.in.SubmitClaimUseCase;
+import com.elgourmat.careflow.application.port.in.UpdateClaimUseCase;
 import com.elgourmat.careflow.application.port.out.ClaimRepository;
 import com.elgourmat.careflow.application.service.DecideClaimService;
 import com.elgourmat.careflow.application.service.GetClaimService;
 import com.elgourmat.careflow.application.service.ListClaimsService;
 import com.elgourmat.careflow.application.service.SubmitClaimService;
+import com.elgourmat.careflow.application.service.UpdateClaimService;
 import com.elgourmat.careflow.domain.rules.ClaimRulesEngine;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -40,5 +42,10 @@ public class ApplicationConfiguration {
     @Bean
     DecideClaimUseCase decideClaimUseCase(ClaimRepository claimRepository, Clock clock) {
         return new DecideClaimService(claimRepository, clock);
+    }
+
+    @Bean
+    UpdateClaimUseCase updateClaimUseCase(ClaimRepository claimRepository, Clock clock) {
+        return new UpdateClaimService(claimRepository, clock);
     }
 }

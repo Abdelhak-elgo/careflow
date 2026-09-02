@@ -1,0 +1,109 @@
+<section class="space-y-6">
+  <a routerLink="/" class="text-sm text-slate-500 hover:text-slate-800">← Retour au tableau de bord</a>
+
+  @if (loading()) {
+    <div class="rounded-xl border border-slate-200 bg-white p-8 text-center text-slate-500 text-sm">Chargement…</div>
+  } @else if (!claim()) {
+    <div class="rounded-xl border border-red-200 bg-red-50 p-8 text-center text-red-700 text-sm">Demande introuvable.</div>
+  } @else {
+    <div class="rounded-xl border border-slate-200 bg-white p-6 space-y-6">
+      <div class="flex items-start justify-between">
+        <div>
+          <h1 class="text-2xl font-semibold text-slate-900">Demande</h1>
+          <p class="text-xs text-slate-400 font-mono">{{ claim()!.id }}</p>
+        </div>
+        <span class="rounded-full px-3 py-1 text-xs font-medium" [class]="statusClasses(claim()!.status)">
+          {{ claim()!.status }}
+        </span>
+      </div>
+
+      @if (!editing()) {
+        <dl class="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <dt class="text-slate-500">Patient</dt>
+            <dd class="text-slate-900 font-mono">{{ claim()!.patientId }}</dd>
+          </div>
+          <div>
+            <dt class="text-slate-500">Type de soin</dt>
+            <dd class="text-slate-900">{{ claim()!.careType }}</dd>
+          </div>
+          <div>
+            <dt class="text-slate-500">Montant</dt>
+            <dd class="text-slate-900 tabular-nums">{{ claim()!.amount | number: '1.2-2' }} {{ claim()!.currency }}</dd>
+          </div>
+          <div>
+            <dt class="text-slate-500">Date du soin</dt>
+            <dd class="text-slate-900">{{ claim()!.careDate | date: 'dd/MM/yyyy' }}</dd>
+          </div>
+          <div>
+            <dt class="text-slate-500">Soumise le</dt>
+            <dd class="text-slate-900">{{ claim()!.submittedAt | date: 'dd/MM/yyyy HH:mm' }}</dd>
+          </div>
+          <div>
+            <dt class="text-slate-500">Décidée le</dt>
+            <dd class="text-slate-900">{{ (claim()!.decidedAt | date: 'dd/MM/yyyy HH:mm') ?? '—' }}</dd>
+          </div>
+          <div class="col-span-2">
+            <dt class="text-slate-500">Motif</dt>
+            <dd class="text-slate-900">{{ claim()!.decisionReason ?? '—' }}</dd>
+          </div>
+        </dl>
+
+        <div class="flex justify-end">
+          @if (editable()) {
+            <button
+              type="button"
+              (click)="startEdit()"
+              class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >Modifier</button>
+          } @else {
+            <p class="text-xs text-slate-400">Cette demande est {{ claim()!.status }} et n'est plus modifiable.</p>
+          }
+        </div>
+      } @else {
+        <form [formGroup]="form" (ngSubmit)="save()" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1" for="edit-patientId">Identifiant patient</label>
+            <input
+              id="edit-patientId"
+              type="text"
+              formControlName="patientId"
+              class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            />
+            @if (form.controls.patientId.touched && form.controls.patientId.invalid) {
+              <p class="text-xs text-red-600 mt-1">Identifiant requis (max 64 caractères).</p>
+            }
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1" for="edit-careDate">Date du soin</label>
+            <input
+              id="edit-careDate"
+              type="date"
+              formControlName="careDate"
+              class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            />
+          </div>
+
+          <p class="text-xs text-slate-500">
+            Seuls le patient et la date du soin peuvent être corrigés tant que la demande est PENDING.
+            Le type et le montant sont figés pour préserver l'audit.
+          </p>
+
+          <div class="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              (click)="cancelEdit()"
+              class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+            >Annuler</button>
+            <button
+              type="submit"
+              [disabled]="saving()"
+              class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            >{{ saving() ? 'Enregistrement…' : 'Enregistrer' }}</button>
+          </div>
+        </form>
+      }
+    </div>
+  }
+</section>

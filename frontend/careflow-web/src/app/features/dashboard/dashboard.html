@@ -45,7 +45,7 @@
         </thead>
         <tbody class="divide-y divide-slate-100">
           @for (claim of rows(); track claim.id) {
-            <tr class="hover:bg-slate-50">
+            <tr class="hover:bg-slate-50 cursor-pointer" [routerLink]="['/claims', claim.id]">
               <td class="px-4 py-3">{{ claim.careDate | date: 'dd/MM/yyyy' }}</td>
               <td class="px-4 py-3">{{ claim.careType }}</td>
               <td class="px-4 py-3 text-right tabular-nums">

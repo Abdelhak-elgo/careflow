@@ -96,4 +96,21 @@ public record Claim(
         }
         return decide(newStatus, reason, clock);
     }
+
+    public Claim updatePatientInfo(String newPatientId, LocalDate newCareDate, Clock clock) {
+        Objects.requireNonNull(newPatientId, "patientId is required");
+        Objects.requireNonNull(newCareDate, "careDate is required");
+        Objects.requireNonNull(clock, "clock is required");
+        if (newPatientId.isBlank()) {
+            throw new IllegalArgumentException("patientId must not be blank");
+        }
+        if (status != ClaimStatus.PENDING) {
+            throw new IllegalClaimStateException(id, status,
+                    "Claim " + id + " is " + status + " and can no longer be edited");
+        }
+        if (newCareDate.isAfter(LocalDate.now(clock))) {
+            throw new InvalidClaimDateException("careDate must not be in the future, was: " + newCareDate);
+        }
+        return new Claim(id, newPatientId, careType, money, newCareDate, status, decisionReason, submittedAt, decidedAt);
+    }
 }

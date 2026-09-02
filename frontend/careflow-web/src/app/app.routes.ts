@@ -18,5 +18,10 @@ export const routes: Routes = [
     canActivate: [adminGuard],
     title: 'CareFlow — Revue admin',
   },
+  {
+    path: 'claims/:id',
+    loadComponent: () => import('./features/claim-detail/claim-detail').then((m) => m.ClaimDetail),
+    title: 'CareFlow — Détail demande',
+  },
   { path: '**', redirectTo: '' },
 ];

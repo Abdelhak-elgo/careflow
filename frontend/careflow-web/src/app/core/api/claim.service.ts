@@ -6,6 +6,7 @@ import {
   ClaimResponse,
   ClaimStatus,
   SubmitClaimRequest,
+  UpdateClaimRequest,
 } from '../models/claim.models';
 
 @Injectable({ providedIn: 'root' })
@@ -31,5 +32,9 @@ export class ClaimService {
 
   decide(id: string, request: AdminDecisionRequest): Observable<ClaimResponse> {
     return this.http.patch<ClaimResponse>(`${this.baseUrl}/${id}/decision`, request);
+  }
+
+  update(id: string, request: UpdateClaimRequest): Observable<ClaimResponse> {
+    return this.http.patch<ClaimResponse>(`${this.baseUrl}/${id}`, request);
   }
 }
