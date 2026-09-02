@@ -2,7 +2,7 @@
   <header class="border-b border-slate-200 bg-white">
     <div class="max-w-5xl mx-auto flex items-center gap-6 px-6 py-4">
       <a routerLink="/" class="text-lg font-semibold text-slate-900">CareFlow</a>
-      <nav class="flex gap-4 text-sm">
+      <nav class="flex gap-4 text-sm flex-1">
         <a
           routerLink="/"
           routerLinkActive="text-blue-600 font-medium"
@@ -14,12 +14,37 @@
           routerLinkActive="text-blue-600 font-medium"
           class="text-slate-600 hover:text-slate-900"
         >Nouvelle demande</a>
-        <a
-          routerLink="/review"
-          routerLinkActive="text-blue-600 font-medium"
-          class="text-slate-600 hover:text-slate-900"
-        >Revue admin</a>
+        @if (auth.isAdmin()) {
+          <a
+            routerLink="/review"
+            routerLinkActive="text-blue-600 font-medium"
+            class="text-slate-600 hover:text-slate-900"
+          >Revue admin</a>
+        }
       </nav>
+      <div class="flex items-center gap-3 text-sm">
+        @if (auth.isLoggedIn()) {
+          <span class="text-slate-500">
+            {{ auth.userName() }}
+            @if (auth.isAdmin()) {
+              <span class="ml-1 rounded bg-purple-100 text-purple-700 px-1.5 py-0.5 text-[10px] uppercase tracking-wide">admin</span>
+            } @else {
+              <span class="ml-1 rounded bg-slate-100 text-slate-700 px-1.5 py-0.5 text-[10px] uppercase tracking-wide">patient</span>
+            }
+          </span>
+          <button
+            type="button"
+            (click)="auth.logout()"
+            class="rounded-md border border-slate-300 bg-white px-3 py-1 text-sm text-slate-700 hover:bg-slate-50"
+          >Déconnexion</button>
+        } @else {
+          <button
+            type="button"
+            (click)="auth.login()"
+            class="rounded-md bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-700"
+          >Se connecter</button>
+        }
+      </div>
     </div>
   </header>
 

@@ -20,6 +20,7 @@ import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -135,11 +136,13 @@ public class ClaimController {
     }
 
     @PatchMapping("/{id}/decision")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(
             summary = "Trancher manuellement une demande PENDING",
-            description = "Route admin. Le domaine impose que la demande soit encore PENDING et que la cible soit APPROVED ou REJECTED."
+            description = "Route admin (rôle ADMIN requis). Le domaine impose que la demande soit encore PENDING et que la cible soit APPROVED ou REJECTED."
     )
     @ApiResponse(responseCode = "200", description = "Demande décidée manuellement")
+    @ApiResponse(responseCode = "403", description = "Rôle ADMIN manquant")
     @ApiResponse(responseCode = "404", description = "Demande inconnue (RFC 7807 ProblemDetail)")
     @ApiResponse(responseCode = "409", description = "Demande déjà tranchée ou cible invalide (RFC 7807 ProblemDetail)")
     public ClaimResponse decide(

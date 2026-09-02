@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { adminGuard } from './core/auth/admin.guard';
 
 export const routes: Routes = [
   {
@@ -14,6 +15,7 @@ export const routes: Routes = [
   {
     path: 'review',
     loadComponent: () => import('./features/review/review').then((m) => m.Review),
+    canActivate: [adminGuard],
     title: 'CareFlow — Revue admin',
   },
   { path: '**', redirectTo: '' },
