@@ -8,6 +8,11 @@ import com.elgourmat.careflow.application.port.in.ListClaimsUseCase;
 import com.elgourmat.careflow.application.port.in.SubmitClaimUseCase;
 import com.elgourmat.careflow.domain.Claim;
 import com.elgourmat.careflow.domain.ClaimStatus;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,6 +33,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/claims")
+@Tag(name = "Claims", description = "Soumission et consultation des demandes de remboursement")
 public class ClaimController {
 
     private static final Logger log = LoggerFactory.getLogger(ClaimController.class);
@@ -50,8 +56,15 @@ public class ClaimController {
     }
 
     @PostMapping
+    @Operation(
+            summary = "Soumettre une nouvelle demande de remboursement",
+            description = "Le moteur de règles décide immédiatement du statut (APPROVED / REJECTED / PENDING)."
+    )
+    @ApiResponse(responseCode = "201", description = "Demande créée avec décision immédiate")
+    @ApiResponse(responseCode = "400", description = "Payload invalide (RFC 7807 ProblemDetail)")
     public ResponseEntity<ClaimResponse> submit(
             @Valid @RequestBody SubmitClaimRequest request,
+            @Parameter(in = ParameterIn.HEADER, name = "X-User-Id", description = "Identité simulée (MVP)")
             @RequestHeader(name = "X-User-Id", required = false) String userId
     ) {
         log.info("submit claim by user={} patient={}", userId, request.patientId());
@@ -60,8 +73,15 @@ public class ClaimController {
     }
 
     @GetMapping
+    @Operation(
+            summary = "Lister les demandes",
+            description = "Retourne toutes les demandes ou un sous-ensemble filtré par statut."
+    )
+    @ApiResponse(responseCode = "200", description = "Liste (potentiellement vide) des demandes")
     public List<ClaimResponse> list(
+            @Parameter(description = "Filtre optionnel: APPROVED | REJECTED | PENDING")
             @RequestParam(name = "status", required = false) ClaimStatus status,
+            @Parameter(in = ParameterIn.HEADER, name = "X-User-Id")
             @RequestHeader(name = "X-User-Id", required = false) String userId
     ) {
         log.info("list claims by user={} status={}", userId, status);
@@ -70,8 +90,12 @@ public class ClaimController {
     }
 
     @GetMapping("/{id}")
+    @Operation(summary = "Récupérer une demande par identifiant")
+    @ApiResponse(responseCode = "200", description = "Demande trouvée")
+    @ApiResponse(responseCode = "404", description = "Demande inconnue (RFC 7807 ProblemDetail)")
     public ClaimResponse getById(
-            @PathVariable UUID id,
+            @Parameter(description = "Identifiant UUID de la demande") @PathVariable UUID id,
+            @Parameter(in = ParameterIn.HEADER, name = "X-User-Id")
             @RequestHeader(name = "X-User-Id", required = false) String userId
     ) {
         log.info("get claim by user={} id={}", userId, id);
