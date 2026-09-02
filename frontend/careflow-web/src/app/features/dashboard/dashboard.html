@@ -1,0 +1,67 @@
+<section class="space-y-6">
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold text-slate-900">Tableau de bord</h1>
+      <p class="text-sm text-slate-500">Historique des demandes de remboursement.</p>
+    </div>
+    <a
+      routerLink="/submit"
+      class="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
+    >Nouvelle demande</a>
+  </div>
+
+  <div class="flex flex-wrap gap-2">
+    @for (s of statuses; track s) {
+      <button
+        type="button"
+        (click)="selectStatus(s)"
+        class="rounded-full border px-3 py-1 text-sm transition"
+        [class.bg-slate-900]="activeStatus() === s"
+        [class.text-white]="activeStatus() === s"
+        [class.border-slate-900]="activeStatus() === s"
+        [class.bg-white]="activeStatus() !== s"
+        [class.text-slate-700]="activeStatus() !== s"
+        [class.border-slate-300]="activeStatus() !== s"
+      >{{ s === 'ALL' ? 'Toutes' : s }}</button>
+    }
+  </div>
+
+  <div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+    @if (loading()) {
+      <div class="p-8 text-center text-slate-500 text-sm">Chargement…</div>
+    } @else if (isEmpty()) {
+      <div class="p-8 text-center text-slate-500 text-sm">Aucune demande pour ce filtre.</div>
+    } @else {
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-slate-600 text-left">
+          <tr>
+            <th class="px-4 py-3 font-medium">Date soin</th>
+            <th class="px-4 py-3 font-medium">Type</th>
+            <th class="px-4 py-3 font-medium text-right">Montant</th>
+            <th class="px-4 py-3 font-medium">Statut</th>
+            <th class="px-4 py-3 font-medium">Raison</th>
+            <th class="px-4 py-3 font-medium">Soumise le</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          @for (claim of rows(); track claim.id) {
+            <tr class="hover:bg-slate-50">
+              <td class="px-4 py-3">{{ claim.careDate | date: 'dd/MM/yyyy' }}</td>
+              <td class="px-4 py-3">{{ claim.careType }}</td>
+              <td class="px-4 py-3 text-right tabular-nums">
+                {{ claim.amount | number: '1.2-2' }} {{ claim.currency }}
+              </td>
+              <td class="px-4 py-3">
+                <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium" [class]="statusClasses(claim.status)">
+                  {{ claim.status }}
+                </span>
+              </td>
+              <td class="px-4 py-3 text-slate-500">{{ claim.decisionReason ?? '—' }}</td>
+              <td class="px-4 py-3 text-slate-500">{{ claim.submittedAt | date: 'dd/MM/yyyy HH:mm' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+</section>

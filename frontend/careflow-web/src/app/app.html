@@ -1,0 +1,49 @@
+<div class="min-h-screen flex flex-col">
+  <header class="border-b border-slate-200 bg-white">
+    <div class="max-w-5xl mx-auto flex items-center gap-6 px-6 py-4">
+      <a routerLink="/" class="text-lg font-semibold text-slate-900">CareFlow</a>
+      <nav class="flex gap-4 text-sm">
+        <a
+          routerLink="/"
+          routerLinkActive="text-blue-600 font-medium"
+          [routerLinkActiveOptions]="{ exact: true }"
+          class="text-slate-600 hover:text-slate-900"
+        >Tableau de bord</a>
+        <a
+          routerLink="/submit"
+          routerLinkActive="text-blue-600 font-medium"
+          class="text-slate-600 hover:text-slate-900"
+        >Nouvelle demande</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-5xl w-full mx-auto px-6 py-8">
+    <router-outlet />
+  </main>
+
+  <div class="fixed top-4 right-4 flex flex-col gap-2 z-50 w-96 max-w-full">
+    @for (n of notifications.notifications(); track n.id) {
+      <div
+        class="rounded-lg shadow-lg border px-4 py-3 flex items-start gap-3 bg-white"
+        [class.border-emerald-300]="n.severity === 'success'"
+        [class.border-red-300]="n.severity === 'error'"
+        [class.border-slate-200]="n.severity === 'info'"
+      >
+        <span
+          class="mt-0.5 h-2.5 w-2.5 rounded-full flex-shrink-0"
+          [class.bg-emerald-500]="n.severity === 'success'"
+          [class.bg-red-500]="n.severity === 'error'"
+          [class.bg-slate-400]="n.severity === 'info'"
+        ></span>
+        <p class="flex-1 text-sm text-slate-800">{{ n.message }}</p>
+        <button
+          type="button"
+          (click)="notifications.dismiss(n.id)"
+          class="text-slate-400 hover:text-slate-600 text-sm"
+          aria-label="Fermer"
+        >×</button>
+      </div>
+    }
+  </div>
+</div>
