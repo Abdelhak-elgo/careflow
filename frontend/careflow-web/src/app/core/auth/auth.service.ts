@@ -33,8 +33,21 @@ export class AuthService {
     return (this.oauth.getIdentityClaims() ?? {}) as JwtClaims;
   });
 
-  readonly userName = computed(() => this.claims().preferred_username ?? 'anonymous');
-  readonly roles = computed<readonly string[]>(() => this.claims().realm_access?.roles ?? []);
+  private readonly accessTokenClaims = computed<JwtClaims>(() => {
+    this._tick();
+    return decodeJwtPayload(this.oauth.getAccessToken());
+  });
+
+  readonly userName = computed(
+    () =>
+      this.claims().preferred_username ??
+      this.accessTokenClaims().preferred_username ??
+      'anonymous',
+  );
+  // Keycloak emits realm_access.roles on the access token by default, not the ID token.
+  readonly roles = computed<readonly string[]>(
+    () => this.accessTokenClaims().realm_access?.roles ?? [],
+  );
   readonly isAdmin = computed(() => this.roles().includes('admin'));
 
   async bootstrap(): Promise<void> {
@@ -56,5 +69,23 @@ export class AuthService {
 
   accessToken(): string | null {
     return this.oauth.getAccessToken() || null;
+  }
+}
+
+function decodeJwtPayload(token: string | null | undefined): JwtClaims {
+  if (!token) {
+    return {};
+  }
+  const parts = token.split('.');
+  if (parts.length < 2) {
+    return {};
+  }
+  try {
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+    const json = atob(padded);
+    return JSON.parse(json) as JwtClaims;
+  } catch {
+    return {};
   }
 }
