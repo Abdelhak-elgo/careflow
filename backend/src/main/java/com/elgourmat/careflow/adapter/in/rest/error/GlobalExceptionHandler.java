@@ -1,5 +1,7 @@
 package com.elgourmat.careflow.adapter.in.rest.error;
 
+import com.elgourmat.careflow.adapter.out.storage.StorageException;
+import com.elgourmat.careflow.domain.exception.AttachmentNotFoundException;
 import com.elgourmat.careflow.domain.exception.ClaimNotFoundException;
 import com.elgourmat.careflow.domain.exception.IllegalClaimStateException;
 import com.elgourmat.careflow.domain.exception.InvalidClaimAmountException;
@@ -11,6 +13,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.util.List;
 import java.util.Map;
@@ -50,12 +53,37 @@ public class GlobalExceptionHandler {
         return pd;
     }
 
+    @ExceptionHandler(AttachmentNotFoundException.class)
+    public ProblemDetail handleAttachmentNotFound(AttachmentNotFoundException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+        pd.setTitle("Attachment not found");
+        pd.setProperty("attachmentId", ex.attachmentId().toString());
+        return pd;
+    }
+
     @ExceptionHandler(IllegalClaimStateException.class)
     public ProblemDetail handleIllegalState(IllegalClaimStateException ex) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
         pd.setTitle("Illegal claim state");
         pd.setProperty("claimId", ex.claimId().toString());
         pd.setProperty("currentStatus", ex.currentStatus().name());
+        return pd;
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ProblemDetail handleUploadTooLarge(MaxUploadSizeExceededException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.PAYLOAD_TOO_LARGE,
+                "Uploaded file exceeds the allowed size limit");
+        pd.setTitle("Payload too large");
+        return pd;
+    }
+
+    @ExceptionHandler(StorageException.class)
+    public ProblemDetail handleStorageFailure(StorageException ex) {
+        log.error("Object storage failure", ex);
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_GATEWAY,
+                "Storage backend is unavailable");
+        pd.setTitle("Storage failure");
         return pd;
     }
 
