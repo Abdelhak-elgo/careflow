@@ -16,6 +16,8 @@ import java.time.Duration;
 public class RateLimitFilter extends OncePerRequestFilter {
 
     static final String CLAIMS_PATH = "/api/claims";
+    private static final java.util.regex.Pattern ATTACHMENTS_UPLOAD_PATH =
+            java.util.regex.Pattern.compile("^/api/claims/[0-9a-fA-F-]{36}/attachments/?$");
     static final String HEADER_REMAINING = "X-RateLimit-Remaining";
     static final String HEADER_LIMIT = "X-RateLimit-Limit";
 
@@ -29,7 +31,11 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return !("POST".equalsIgnoreCase(request.getMethod()) && CLAIMS_PATH.equals(request.getRequestURI()));
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            return true;
+        }
+        String uri = request.getRequestURI();
+        return !(CLAIMS_PATH.equals(uri) || ATTACHMENTS_UPLOAD_PATH.matcher(uri).matches());
     }
 
     @Override

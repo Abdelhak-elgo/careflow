@@ -93,7 +93,7 @@ public class ClaimController {
             if (idempotencyKey.length() > 128) {
                 throw new IllegalArgumentException("Idempotency-Key must not exceed 128 characters");
             }
-            Optional<UUID> cached = idempotencyKeys.lookup(idempotencyKey);
+            Optional<UUID> cached = idempotencyKeys.lookup(idempotencyKey, IdempotencyKeyStore.RESOURCE_CLAIM);
             if (cached.isPresent()) {
                 Claim existing = getClaimUseCase.getById(cached.get());
                 log.info("idempotency hit: returning existing claim id={}", existing.id());
@@ -104,7 +104,7 @@ public class ClaimController {
         Claim claim = submitClaimUseCase.submit(mapper.toCommand(request));
 
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
-            idempotencyKeys.store(idempotencyKey, claim.id());
+            idempotencyKeys.store(idempotencyKey, IdempotencyKeyStore.RESOURCE_CLAIM, claim.id());
         }
 
         return ResponseEntity.status(HttpStatus.CREATED).body(mapper.toResponse(claim));
@@ -175,10 +175,32 @@ public class ClaimController {
             @Parameter(description = "Identifiant UUID de la demande") @PathVariable UUID id,
             @Valid @RequestBody AdminDecisionRequest request,
             @Parameter(in = ParameterIn.HEADER, name = "X-User-Id", description = "Admin identifié (MVP)")
-            @RequestHeader(name = "X-User-Id", required = false) String userId
+            @RequestHeader(name = "X-User-Id", required = false) String userId,
+            @Parameter(in = ParameterIn.HEADER, name = "Idempotency-Key",
+                    description = "Clé opaque ≤128 chars. Rejouer la même clé renvoie la demande initiale (TTL 24h).")
+            @RequestHeader(name = "Idempotency-Key", required = false) String idempotencyKey
     ) {
-        log.info("decide claim by admin={} id={} decision={}", userId, id, request.decision());
+        log.info("decide claim by admin={} id={} decision={} idempotencyKey={}",
+                userId, id, request.decision(), idempotencyKey);
+
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            if (idempotencyKey.length() > 128) {
+                throw new IllegalArgumentException("Idempotency-Key must not exceed 128 characters");
+            }
+            Optional<UUID> cached = idempotencyKeys.lookup(idempotencyKey, IdempotencyKeyStore.RESOURCE_CLAIM);
+            if (cached.isPresent()) {
+                Claim existing = getClaimUseCase.getById(cached.get());
+                log.info("idempotency hit: returning existing decision for claim id={}", existing.id());
+                return mapper.toResponse(existing);
+            }
+        }
+
         Claim decided = decideClaimUseCase.decide(mapper.toDecideCommand(id, request));
+
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            idempotencyKeys.store(idempotencyKey, IdempotencyKeyStore.RESOURCE_CLAIM, decided.id());
+        }
+
         return mapper.toResponse(decided);
     }
 }

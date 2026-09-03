@@ -47,15 +47,25 @@ class IdempotencyKeyStoreTest extends AbstractPostgresIntegrationTest {
     void store_then_lookup_returns_stored_claim_id() {
         UUID claimId = persistedClaim().id();
 
-        store.store("ik_1", claimId);
-        Optional<UUID> found = store.lookup("ik_1");
+        store.store("ik_1", IdempotencyKeyStore.RESOURCE_CLAIM, claimId);
+        Optional<UUID> found = store.lookup("ik_1", IdempotencyKeyStore.RESOURCE_CLAIM);
 
         assertThat(found).contains(claimId);
     }
 
     @Test
     void lookup_missing_key_returns_empty() {
-        assertThat(store.lookup("ik_never")).isEmpty();
+        assertThat(store.lookup("ik_never", IdempotencyKeyStore.RESOURCE_CLAIM)).isEmpty();
+    }
+
+    @Test
+    void lookup_with_wrong_resource_type_returns_empty() {
+        UUID claimId = persistedClaim().id();
+
+        store.store("ik_typed", IdempotencyKeyStore.RESOURCE_CLAIM, claimId);
+
+        assertThat(store.lookup("ik_typed", IdempotencyKeyStore.RESOURCE_ATTACHMENT)).isEmpty();
+        assertThat(store.lookup("ik_typed", IdempotencyKeyStore.RESOURCE_CLAIM)).contains(claimId);
     }
 
     @Test
@@ -63,24 +73,24 @@ class IdempotencyKeyStoreTest extends AbstractPostgresIntegrationTest {
         UUID first = persistedClaim().id();
         UUID second = persistedClaim().id();
 
-        store.store("ik_dup", first);
-        store.store("ik_dup", second);
+        store.store("ik_dup", IdempotencyKeyStore.RESOURCE_CLAIM, first);
+        store.store("ik_dup", IdempotencyKeyStore.RESOURCE_CLAIM, second);
 
-        assertThat(store.lookup("ik_dup")).contains(first);
+        assertThat(store.lookup("ik_dup", IdempotencyKeyStore.RESOURCE_CLAIM)).contains(first);
     }
 
     @Test
     void deleteOlderThan_removes_expired_keys_only() {
         UUID a = persistedClaim().id();
         UUID b = persistedClaim().id();
-        store.store("ik_old", a);
-        store.store("ik_recent", b);
+        store.store("ik_old", IdempotencyKeyStore.RESOURCE_CLAIM, a);
+        store.store("ik_recent", IdempotencyKeyStore.RESOURCE_CLAIM, b);
 
         int removed = store.deleteOlderThan(NOW.plusSeconds(1));
 
         assertThat(removed).isEqualTo(2);
-        assertThat(store.lookup("ik_old")).isEmpty();
-        assertThat(store.lookup("ik_recent")).isEmpty();
+        assertThat(store.lookup("ik_old", IdempotencyKeyStore.RESOURCE_CLAIM)).isEmpty();
+        assertThat(store.lookup("ik_recent", IdempotencyKeyStore.RESOURCE_CLAIM)).isEmpty();
     }
 
     private Claim persistedClaim() {

@@ -192,14 +192,16 @@ class ClaimControllerTest {
                         .content(payloadJson("50.00")))
                 .andExpect(status().isCreated());
 
-        org.mockito.Mockito.verify(idempotencyKeys, org.mockito.Mockito.never()).lookup(org.mockito.ArgumentMatchers.anyString());
-        org.mockito.Mockito.verify(idempotencyKeys, org.mockito.Mockito.never()).store(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(UUID.class));
+        org.mockito.Mockito.verify(idempotencyKeys, org.mockito.Mockito.never())
+                .lookup(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString());
+        org.mockito.Mockito.verify(idempotencyKeys, org.mockito.Mockito.never())
+                .store(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(UUID.class));
     }
 
     @Test
     void POST_with_new_idempotency_key_submits_and_stores() throws Exception {
         Claim decided = decidedClaim(ClaimStatus.APPROVED, "auto", new BigDecimal("50"));
-        given(idempotencyKeys.lookup("ik_first")).willReturn(Optional.empty());
+        given(idempotencyKeys.lookup("ik_first", IdempotencyKeyStore.RESOURCE_CLAIM)).willReturn(Optional.empty());
         given(submitClaimUseCase.submit(any(SubmitClaimCommand.class))).willReturn(decided);
 
         mockMvc.perform(post("/api/claims")
@@ -209,13 +211,13 @@ class ClaimControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(decided.id().toString()));
 
-        org.mockito.Mockito.verify(idempotencyKeys).store("ik_first", decided.id());
+        org.mockito.Mockito.verify(idempotencyKeys).store("ik_first", IdempotencyKeyStore.RESOURCE_CLAIM, decided.id());
     }
 
     @Test
     void POST_with_replayed_idempotency_key_returns_cached_claim_without_resubmitting() throws Exception {
         Claim cached = decidedClaim(ClaimStatus.APPROVED, "auto", new BigDecimal("50"));
-        given(idempotencyKeys.lookup("ik_replay")).willReturn(Optional.of(cached.id()));
+        given(idempotencyKeys.lookup("ik_replay", IdempotencyKeyStore.RESOURCE_CLAIM)).willReturn(Optional.of(cached.id()));
         given(getClaimUseCase.getById(cached.id())).willReturn(cached);
 
         mockMvc.perform(post("/api/claims")
@@ -226,7 +228,8 @@ class ClaimControllerTest {
                 .andExpect(jsonPath("$.id").value(cached.id().toString()));
 
         org.mockito.Mockito.verify(submitClaimUseCase, org.mockito.Mockito.never()).submit(any(SubmitClaimCommand.class));
-        org.mockito.Mockito.verify(idempotencyKeys, org.mockito.Mockito.never()).store(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(UUID.class));
+        org.mockito.Mockito.verify(idempotencyKeys, org.mockito.Mockito.never())
+                .store(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(UUID.class));
     }
 
     @Test

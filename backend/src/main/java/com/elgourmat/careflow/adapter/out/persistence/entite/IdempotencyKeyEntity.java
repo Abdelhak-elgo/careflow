@@ -24,8 +24,11 @@ public class IdempotencyKeyEntity {
     @Column(name = "key", length = 128)
     private String key;
 
-    @Column(name = "claim_id", nullable = false)
-    private UUID claimId;
+    @Column(name = "resource_id", nullable = false)
+    private UUID resourceId;
+
+    @Column(name = "resource_type", nullable = false, length = 32)
+    private String resourceType;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;

@@ -14,6 +14,9 @@ import java.util.UUID;
 @Component
 public class IdempotencyKeyStore {
 
+    public static final String RESOURCE_CLAIM = "CLAIM";
+    public static final String RESOURCE_ATTACHMENT = "ATTACHMENT";
+
     private final IdempotencyKeyJpaRepository repository;
     private final Clock clock;
 
@@ -23,18 +26,23 @@ public class IdempotencyKeyStore {
     }
 
     @Transactional(readOnly = true)
-    public Optional<UUID> lookup(String key) {
-        return repository.findById(key).map(IdempotencyKeyEntity::getClaimId);
+    public Optional<UUID> lookup(String key, String resourceType) {
+        Objects.requireNonNull(key, "key is required");
+        Objects.requireNonNull(resourceType, "resourceType is required");
+        return repository.findById(key)
+                .filter(e -> resourceType.equals(e.getResourceType()))
+                .map(IdempotencyKeyEntity::getResourceId);
     }
 
     @Transactional
-    public void store(String key, UUID claimId) {
+    public void store(String key, String resourceType, UUID resourceId) {
         Objects.requireNonNull(key, "key is required");
-        Objects.requireNonNull(claimId, "claimId is required");
+        Objects.requireNonNull(resourceType, "resourceType is required");
+        Objects.requireNonNull(resourceId, "resourceId is required");
         if (repository.existsById(key)) {
             return;
         }
-        repository.save(new IdempotencyKeyEntity(key, claimId, Instant.now(clock)));
+        repository.save(new IdempotencyKeyEntity(key, resourceId, resourceType, Instant.now(clock)));
     }
 
     @Transactional
