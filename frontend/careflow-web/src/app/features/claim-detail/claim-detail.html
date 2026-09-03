@@ -105,5 +105,73 @@
         </form>
       }
     </div>
+
+    <div class="rounded-xl border border-slate-200 bg-white p-6 space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-semibold text-slate-900">Pièces jointes</h2>
+        <span class="text-xs text-slate-400">{{ attachments().length }} fichier(s)</span>
+      </div>
+
+      @if (editing()) {
+        <label class="flex items-center gap-3">
+          <input
+            type="file"
+            (change)="onFileSelected($event)"
+            [disabled]="uploading()"
+            class="text-sm text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-50"
+          />
+          @if (uploading()) {
+            <span class="text-xs text-slate-500">Envoi en cours…</span>
+          }
+        </label>
+      } @else if (editable()) {
+        <p class="text-xs text-slate-400">Cliquez sur <span class="font-medium">Modifier</span> pour ajouter des pièces jointes.</p>
+      } @else {
+        <p class="text-xs text-slate-400">Cette demande est {{ claim()!.status }} — l'ajout de fichiers est fermé.</p>
+      }
+
+      @if (attachments().length === 0) {
+        <p class="text-sm text-slate-500">Aucune pièce jointe.</p>
+      } @else {
+        <table class="w-full text-sm">
+          <thead class="bg-slate-50 text-slate-600 text-left">
+            <tr>
+              <th class="px-3 py-2 font-medium">Nom</th>
+              <th class="px-3 py-2 font-medium">Taille</th>
+              <th class="px-3 py-2 font-medium">Le</th>
+              <th class="px-3 py-2 font-medium text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            @for (a of attachments(); track a.id) {
+              <tr class="hover:bg-slate-50">
+                <td class="px-3 py-2">
+                  <div class="font-mono text-slate-800">{{ a.originalName }}</div>
+                  <div class="text-xs text-slate-400">{{ a.contentType }}</div>
+                </td>
+                <td class="px-3 py-2 tabular-nums text-slate-700">{{ kilobytes(a.sizeBytes) | number: '1.1-1' }} Ko</td>
+                <td class="px-3 py-2 text-slate-600 text-xs">{{ a.uploadedAt | date: 'dd/MM/yyyy HH:mm' }}</td>
+                <td class="px-3 py-2 text-right">
+                  <div class="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      (click)="downloadAttachment(a)"
+                      class="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
+                    >Télécharger</button>
+                    @if (auth.isAdmin()) {
+                      <button
+                        type="button"
+                        (click)="deleteAttachment(a)"
+                        class="rounded-md bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-700"
+                      >Supprimer</button>
+                    }
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
   }
 </section>

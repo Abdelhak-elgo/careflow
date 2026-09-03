@@ -71,11 +71,61 @@
       </div>
     </div>
 
+    <div class="pt-2 space-y-2">
+      <label class="block text-sm font-medium text-slate-700">Justificatifs (facture, ordonnance, feuille de soins…)</label>
+      <div
+        (dragover)="onDragOver($event)"
+        (dragleave)="onDragLeave($event)"
+        (drop)="onDrop($event)"
+        class="rounded-lg border-2 border-dashed p-6 text-center transition-colors"
+        [class.border-blue-500]="dragOver()"
+        [class.bg-blue-50]="dragOver()"
+        [class.border-slate-300]="!dragOver()"
+        [class.bg-slate-50]="!dragOver()"
+      >
+        <p class="text-sm text-slate-600">
+          Glissez vos fichiers ici, ou
+          <label class="text-blue-600 font-medium cursor-pointer hover:underline">
+            parcourez
+            <input
+              type="file"
+              multiple
+              (change)="onFilesSelected($event)"
+              class="hidden"
+            />
+          </label>
+        </p>
+        <p class="text-xs text-slate-400 mt-1">PDF, images, ou tout type de fichier ≤ 10 Mo.</p>
+      </div>
+
+      @if (queuedFiles().length > 0) {
+        <ul class="divide-y divide-slate-100 rounded-md border border-slate-200 bg-white">
+          @for (f of queuedFiles(); track f.name; let i = $index) {
+            <li class="flex items-center justify-between px-3 py-2 text-sm">
+              <div class="min-w-0 flex-1">
+                <div class="font-mono text-slate-800 truncate">{{ f.name }}</div>
+                <div class="text-xs text-slate-400">
+                  {{ f.type || 'application/octet-stream' }} — {{ kilobytes(f.size) | number: '1.1-1' }} Ko
+                </div>
+              </div>
+              <button
+                type="button"
+                (click)="removeFile(i)"
+                class="ml-3 text-xs text-red-600 hover:text-red-800"
+                [disabled]="submitting()"
+              >Retirer</button>
+            </li>
+          }
+        </ul>
+      }
+    </div>
+
     <div class="flex items-center justify-end gap-3 pt-2">
       <button
         type="button"
-        (click)="form.reset()"
+        (click)="form.reset(); queuedFiles.set([])"
         class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        [disabled]="submitting()"
       >Réinitialiser</button>
       <button
         type="submit"

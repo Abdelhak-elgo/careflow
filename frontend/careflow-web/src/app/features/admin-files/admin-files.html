@@ -1,0 +1,87 @@
+<section class="space-y-6">
+  <div>
+    <h1 class="text-2xl font-semibold text-slate-900">Fichiers</h1>
+    <p class="text-sm text-slate-500">Toutes les pièces jointes soumises, tous claims confondus.</p>
+  </div>
+
+  <div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+    @if (loading()) {
+      <div class="p-8 text-center text-slate-500 text-sm">Chargement…</div>
+    } @else if (isEmpty()) {
+      <div class="p-8 text-center text-slate-500 text-sm">Aucune pièce jointe.</div>
+    } @else {
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-slate-600 text-left">
+          <tr>
+            <th class="px-4 py-3 font-medium">Fichier</th>
+            <th class="px-4 py-3 font-medium">Taille</th>
+            <th class="px-4 py-3 font-medium">Demande</th>
+            <th class="px-4 py-3 font-medium">Uploadé par</th>
+            <th class="px-4 py-3 font-medium">Le</th>
+            <th class="px-4 py-3 font-medium text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          @for (a of items(); track a.id) {
+            <tr class="hover:bg-slate-50">
+              <td class="px-4 py-3 text-slate-800">
+                @if (renamingId() === a.id) {
+                  <div class="flex gap-2 items-center">
+                    <input
+                      type="text"
+                      [value]="renameValue()"
+                      (input)="onRenameInput($event)"
+                      class="w-full rounded-md border border-slate-300 px-2 py-1 text-sm"
+                    />
+                    <button
+                      type="button"
+                      (click)="submitRename(a.id)"
+                      class="rounded-md bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700"
+                    >OK</button>
+                    <button
+                      type="button"
+                      (click)="cancelRename()"
+                      class="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
+                    >Annuler</button>
+                  </div>
+                } @else {
+                  <div class="font-mono">{{ a.originalName }}</div>
+                  <div class="text-xs text-slate-400">{{ a.contentType }}</div>
+                }
+              </td>
+              <td class="px-4 py-3 tabular-nums text-slate-700">{{ kilobytes(a.sizeBytes) | number: '1.1-1' }} Ko</td>
+              <td class="px-4 py-3">
+                <a [routerLink]="['/claims', a.claimId]" class="text-blue-600 hover:underline font-mono text-xs">
+                  {{ a.claimId.slice(0, 8) }}…
+                </a>
+              </td>
+              <td class="px-4 py-3 font-mono text-xs text-slate-600">{{ a.uploadedBy }}</td>
+              <td class="px-4 py-3 text-slate-600 text-xs">{{ a.uploadedAt | date: 'dd/MM/yyyy HH:mm' }}</td>
+              <td class="px-4 py-3 text-right">
+                <div class="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    (click)="download(a)"
+                    class="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
+                  >Télécharger</button>
+                  @if (renamingId() !== a.id) {
+                    <button
+                      type="button"
+                      (click)="startRename(a)"
+                      class="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
+                    >Renommer</button>
+                  }
+                  <button
+                    type="button"
+                    (click)="delete(a)"
+                    class="rounded-md bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-700"
+                  >Supprimer</button>
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+</section>
