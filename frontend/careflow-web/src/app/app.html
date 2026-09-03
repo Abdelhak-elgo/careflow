@@ -3,17 +3,19 @@
     <div class="max-w-5xl mx-auto flex items-center gap-6 px-6 py-4">
       <a routerLink="/" class="text-lg font-semibold text-slate-900">CareFlow</a>
       <nav class="flex gap-4 text-sm flex-1">
-        <a
-          routerLink="/"
-          routerLinkActive="text-blue-600 font-medium"
-          [routerLinkActiveOptions]="{ exact: true }"
-          class="text-slate-600 hover:text-slate-900"
-        >Tableau de bord</a>
-        <a
-          routerLink="/submit"
-          routerLinkActive="text-blue-600 font-medium"
-          class="text-slate-600 hover:text-slate-900"
-        >Nouvelle demande</a>
+        @if (auth.isLoggedIn()) {
+          <a
+            routerLink="/dashboard"
+            routerLinkActive="text-blue-600 font-medium"
+            [routerLinkActiveOptions]="{ exact: true }"
+            class="text-slate-600 hover:text-slate-900"
+          >Tableau de bord</a>
+          <a
+            routerLink="/submit"
+            routerLinkActive="text-blue-600 font-medium"
+            class="text-slate-600 hover:text-slate-900"
+          >Nouvelle demande</a>
+        }
         @if (auth.isAdmin()) {
           <a
             routerLink="/review"
@@ -25,6 +27,11 @@
             routerLinkActive="text-blue-600 font-medium"
             class="text-slate-600 hover:text-slate-900"
           >Audit</a>
+          <a
+            routerLink="/admin/files"
+            routerLinkActive="text-blue-600 font-medium"
+            class="text-slate-600 hover:text-slate-900"
+          >Fichiers</a>
         }
       </nav>
       <div class="flex items-center gap-3 text-sm">

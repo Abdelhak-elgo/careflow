@@ -1,0 +1,22 @@
+import { Component, inject } from '@angular/core';
+import { Router } from '@angular/router';
+import { AuthService } from '../../core/auth/auth.service';
+
+@Component({
+  selector: 'app-home',
+  templateUrl: './home.html',
+})
+export class Home {
+  protected readonly auth = inject(AuthService);
+  private readonly router = inject(Router);
+
+  constructor() {
+    if (this.auth.isLoggedIn()) {
+      this.router.navigate(['/dashboard']);
+    }
+  }
+
+  login(): void {
+    this.auth.login();
+  }
+}
