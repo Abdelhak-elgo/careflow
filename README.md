@@ -4,8 +4,6 @@ Plateforme de remboursement de soins — un patient soumet une demande, un moteu
 
 **Stack** : Spring Boot 4 · Java 21 · Angular 17 · PostgreSQL 16 · Keycloak (OIDC) · MinIO (S3) · Flyway · MapStruct · Testcontainers · Docker Compose.
 
-**Contexte** : exercice de 3 jours pour entretien Senior @ Theodo. Voir [Dette technique avouée](#dette-technique-avouée) pour le scope explicitement non couvert.
-
 ---
 
 ## Sommaire
@@ -203,15 +201,14 @@ Ce que je livrerais en plus si le projet allait en prod :
 
 ## Dette technique avouée
 
-Faute de temps sur les 3 jours, les éléments suivants sont **explicitement hors scope MVP** :
+Éléments **explicitement hors scope** de ce POC — à traiter avant tout déploiement en production :
 
-- **Authentification / autorisation** — simulée via header `X-User-Id`. En prod → OIDC.
-- **Rate limiting** — non implémenté. En prod → gateway (Kong / Spring Cloud Gateway) + bucket4j.
-- **Audit trail** — seulement `submitted_at` / `decided_at`. En prod → table `claim_event` append-only, ou Spring Data Envers.
-- **Notifications patient** (email, SMS) — hors scope. En prod → event → worker dédié.
-- **Front admin** (traitement des `PENDING`) — le front livré ne couvre que le parcours patient.
+- **Idempotency sur upload avec hash de contenu** — la clé mappe actuellement vers l'attachment id sans lier le contenu ; un rejeu avec un fichier différent renverrait l'ancien.
+- **Notifications patient** (email, SMS) — l'utilisateur n'est pas notifié lors d'un changement de statut.
 - **CI/CD** — pas de pipeline livré ; commandes locales documentées ci-dessus.
+- **Sécurité storage** — pas d'URLs pré-signées MinIO ni de scan antivirus (ClamAV) sur les uploads.
+- **Observability** — pas de metrics métier (Micrometer + OTel) ni de dashboards.
 
 ---
 
-**Auteur** : Abdelhak El Gourmat · Exercice pour entretien Senior @ Theodo.
+**Auteur** : Abdelhak El Gourmat.
