@@ -1,11 +1,16 @@
 package com.elgourmat.careflow.adapter.in.rest;
 
+import com.elgourmat.careflow.adapter.in.rest.dto.AdminDecisionRequest;
 import com.elgourmat.careflow.adapter.in.rest.dto.ClaimResponse;
 import com.elgourmat.careflow.adapter.in.rest.dto.SubmitClaimRequest;
+import com.elgourmat.careflow.adapter.in.rest.dto.UpdateClaimRequest;
 import com.elgourmat.careflow.adapter.in.rest.mapper.ClaimRestMapper;
+import com.elgourmat.careflow.adapter.out.persistence.IdempotencyKeyStore;
+import com.elgourmat.careflow.application.port.in.DecideClaimUseCase;
 import com.elgourmat.careflow.application.port.in.GetClaimUseCase;
 import com.elgourmat.careflow.application.port.in.ListClaimsUseCase;
 import com.elgourmat.careflow.application.port.in.SubmitClaimUseCase;
+import com.elgourmat.careflow.application.port.in.UpdateClaimUseCase;
 import com.elgourmat.careflow.domain.Claim;
 import com.elgourmat.careflow.domain.ClaimStatus;
 import io.swagger.v3.oas.annotations.Operation;
@@ -17,8 +22,10 @@ import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -41,34 +48,65 @@ public class ClaimController {
     private final SubmitClaimUseCase submitClaimUseCase;
     private final ListClaimsUseCase listClaimsUseCase;
     private final GetClaimUseCase getClaimUseCase;
+    private final DecideClaimUseCase decideClaimUseCase;
+    private final UpdateClaimUseCase updateClaimUseCase;
     private final ClaimRestMapper mapper;
+    private final IdempotencyKeyStore idempotencyKeys;
 
     public ClaimController(
             SubmitClaimUseCase submitClaimUseCase,
             ListClaimsUseCase listClaimsUseCase,
             GetClaimUseCase getClaimUseCase,
-            ClaimRestMapper mapper
+            DecideClaimUseCase decideClaimUseCase,
+            UpdateClaimUseCase updateClaimUseCase,
+            ClaimRestMapper mapper,
+            IdempotencyKeyStore idempotencyKeys
     ) {
         this.submitClaimUseCase = submitClaimUseCase;
         this.listClaimsUseCase = listClaimsUseCase;
         this.getClaimUseCase = getClaimUseCase;
+        this.decideClaimUseCase = decideClaimUseCase;
+        this.updateClaimUseCase = updateClaimUseCase;
         this.mapper = mapper;
+        this.idempotencyKeys = idempotencyKeys;
     }
 
     @PostMapping
     @Operation(
             summary = "Soumettre une nouvelle demande de remboursement",
-            description = "Le moteur de règles décide immédiatement du statut (APPROVED / REJECTED / PENDING)."
+            description = "Le moteur de règles décide immédiatement du statut (APPROVED / REJECTED / PENDING). "
+                    + "Si l'en-tête Idempotency-Key est fourni et déjà vu, la demande précédente est renvoyée à l'identique."
     )
     @ApiResponse(responseCode = "201", description = "Demande créée avec décision immédiate")
     @ApiResponse(responseCode = "400", description = "Payload invalide (RFC 7807 ProblemDetail)")
     public ResponseEntity<ClaimResponse> submit(
             @Valid @RequestBody SubmitClaimRequest request,
             @Parameter(in = ParameterIn.HEADER, name = "X-User-Id", description = "Identité simulée (MVP)")
-            @RequestHeader(name = "X-User-Id", required = false) String userId
+            @RequestHeader(name = "X-User-Id", required = false) String userId,
+            @Parameter(in = ParameterIn.HEADER, name = "Idempotency-Key",
+                    description = "Clé opaque ≤128 chars. Rejouer la même clé renvoie la demande initiale (TTL 24h).")
+            @RequestHeader(name = "Idempotency-Key", required = false) String idempotencyKey
     ) {
-        log.info("submit claim by user={} patient={}", userId, request.patientId());
+        log.info("submit claim by user={} patient={} idempotencyKey={}", userId, request.patientId(), idempotencyKey);
+
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            if (idempotencyKey.length() > 128) {
+                throw new IllegalArgumentException("Idempotency-Key must not exceed 128 characters");
+            }
+            Optional<UUID> cached = idempotencyKeys.lookup(idempotencyKey, IdempotencyKeyStore.RESOURCE_CLAIM);
+            if (cached.isPresent()) {
+                Claim existing = getClaimUseCase.getById(cached.get());
+                log.info("idempotency hit: returning existing claim id={}", existing.id());
+                return ResponseEntity.status(HttpStatus.CREATED).body(mapper.toResponse(existing));
+            }
+        }
+
         Claim claim = submitClaimUseCase.submit(mapper.toCommand(request));
+
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            idempotencyKeys.store(idempotencyKey, IdempotencyKeyStore.RESOURCE_CLAIM, claim.id());
+        }
+
         return ResponseEntity.status(HttpStatus.CREATED).body(mapper.toResponse(claim));
     }
 
@@ -100,5 +138,69 @@ public class ClaimController {
     ) {
         log.info("get claim by user={} id={}", userId, id);
         return mapper.toResponse(getClaimUseCase.getById(id));
+    }
+
+    @PatchMapping("/{id}")
+    @Operation(
+            summary = "Mettre à jour une demande PENDING",
+            description = "Le patient peut corriger patientId et careDate tant que la demande est PENDING. "
+                    + "Les champs métier (careType, amount, currency) sont figés pour préserver l'intégrité de l'audit."
+    )
+    @ApiResponse(responseCode = "200", description = "Demande mise à jour")
+    @ApiResponse(responseCode = "400", description = "Payload invalide (RFC 7807 ProblemDetail)")
+    @ApiResponse(responseCode = "404", description = "Demande inconnue (RFC 7807 ProblemDetail)")
+    @ApiResponse(responseCode = "409", description = "Demande déjà tranchée, non éditable (RFC 7807 ProblemDetail)")
+    public ClaimResponse update(
+            @Parameter(description = "Identifiant UUID de la demande") @PathVariable UUID id,
+            @Valid @RequestBody UpdateClaimRequest request,
+            @Parameter(in = ParameterIn.HEADER, name = "X-User-Id")
+            @RequestHeader(name = "X-User-Id", required = false) String userId
+    ) {
+        log.info("update claim by user={} id={} patientId={} careDate={}", userId, id, request.patientId(), request.careDate());
+        Claim updated = updateClaimUseCase.update(mapper.toUpdateCommand(id, request));
+        return mapper.toResponse(updated);
+    }
+
+    @PatchMapping("/{id}/decision")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(
+            summary = "Trancher manuellement une demande PENDING",
+            description = "Route admin (rôle ADMIN requis). Le domaine impose que la demande soit encore PENDING et que la cible soit APPROVED ou REJECTED."
+    )
+    @ApiResponse(responseCode = "200", description = "Demande décidée manuellement")
+    @ApiResponse(responseCode = "403", description = "Rôle ADMIN manquant")
+    @ApiResponse(responseCode = "404", description = "Demande inconnue (RFC 7807 ProblemDetail)")
+    @ApiResponse(responseCode = "409", description = "Demande déjà tranchée ou cible invalide (RFC 7807 ProblemDetail)")
+    public ClaimResponse decide(
+            @Parameter(description = "Identifiant UUID de la demande") @PathVariable UUID id,
+            @Valid @RequestBody AdminDecisionRequest request,
+            @Parameter(in = ParameterIn.HEADER, name = "X-User-Id", description = "Admin identifié (MVP)")
+            @RequestHeader(name = "X-User-Id", required = false) String userId,
+            @Parameter(in = ParameterIn.HEADER, name = "Idempotency-Key",
+                    description = "Clé opaque ≤128 chars. Rejouer la même clé renvoie la demande initiale (TTL 24h).")
+            @RequestHeader(name = "Idempotency-Key", required = false) String idempotencyKey
+    ) {
+        log.info("decide claim by admin={} id={} decision={} idempotencyKey={}",
+                userId, id, request.decision(), idempotencyKey);
+
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            if (idempotencyKey.length() > 128) {
+                throw new IllegalArgumentException("Idempotency-Key must not exceed 128 characters");
+            }
+            Optional<UUID> cached = idempotencyKeys.lookup(idempotencyKey, IdempotencyKeyStore.RESOURCE_CLAIM);
+            if (cached.isPresent()) {
+                Claim existing = getClaimUseCase.getById(cached.get());
+                log.info("idempotency hit: returning existing decision for claim id={}", existing.id());
+                return mapper.toResponse(existing);
+            }
+        }
+
+        Claim decided = decideClaimUseCase.decide(mapper.toDecideCommand(id, request));
+
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            idempotencyKeys.store(idempotencyKey, IdempotencyKeyStore.RESOURCE_CLAIM, decided.id());
+        }
+
+        return mapper.toResponse(decided);
     }
 }

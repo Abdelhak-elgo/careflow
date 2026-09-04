@@ -27,6 +27,18 @@ export interface ClaimResponse {
   decidedAt: string | null;
 }
 
+export type AdminDecision = Extract<ClaimStatus, 'APPROVED' | 'REJECTED'>;
+
+export interface AdminDecisionRequest {
+  decision: AdminDecision;
+  reason: string;
+}
+
+export interface UpdateClaimRequest {
+  patientId: string;
+  careDate: string;
+}
+
 export interface ProblemDetail {
   type?: string;
   title?: string;

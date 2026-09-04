@@ -1,49 +1,122 @@
 <div class="min-h-screen flex flex-col">
-  <header class="border-b border-slate-200 bg-white">
-    <div class="max-w-5xl mx-auto flex items-center gap-6 px-6 py-4">
-      <a routerLink="/" class="text-lg font-semibold text-slate-900">CareFlow</a>
-      <nav class="flex gap-4 text-sm">
-        <a
-          routerLink="/"
-          routerLinkActive="text-blue-600 font-medium"
-          [routerLinkActiveOptions]="{ exact: true }"
-          class="text-slate-600 hover:text-slate-900"
-        >Tableau de bord</a>
-        <a
-          routerLink="/submit"
-          routerLinkActive="text-blue-600 font-medium"
-          class="text-slate-600 hover:text-slate-900"
-        >Nouvelle demande</a>
+  <header class="sticky top-0 z-40 border-b cf-hairline backdrop-blur-md bg-[color:var(--cf-bone-soft)]/85">
+    <div class="max-w-6xl mx-auto flex items-center gap-8 px-6 py-4">
+      <a routerLink="/" class="group flex items-baseline gap-2">
+        <span class="font-display text-2xl text-[color:var(--cf-ink)]">Care</span><span class="font-display text-2xl text-[color:var(--cf-teal)] italic">flow</span>
+        <span class="ml-1 h-1.5 w-1.5 rounded-full bg-[color:var(--cf-teal)] transition-transform group-hover:scale-125"></span>
+      </a>
+
+      <nav class="flex gap-1 text-sm flex-1">
+        @if (auth.isLoggedIn()) {
+          <a
+            routerLink="/dashboard"
+            routerLinkActive="text-[color:var(--cf-ink)] bg-[color:var(--cf-line)]/40"
+            [routerLinkActiveOptions]="{ exact: true }"
+            class="rounded-full px-3 py-1.5 text-[color:var(--cf-ink-soft)] hover:text-[color:var(--cf-ink)] transition-colors"
+          >Tableau de bord</a>
+          <a
+            routerLink="/submit"
+            routerLinkActive="text-[color:var(--cf-ink)] bg-[color:var(--cf-line)]/40"
+            class="rounded-full px-3 py-1.5 text-[color:var(--cf-ink-soft)] hover:text-[color:var(--cf-ink)] transition-colors"
+          >Nouvelle demande</a>
+        }
+        @if (auth.isAdmin()) {
+          <span class="mx-1 h-5 w-px bg-[color:var(--cf-line-strong)] self-center" aria-hidden="true"></span>
+          <a
+            routerLink="/review"
+            routerLinkActive="text-[color:var(--cf-ink)] bg-[color:var(--cf-line)]/40"
+            class="rounded-full px-3 py-1.5 text-[color:var(--cf-ink-soft)] hover:text-[color:var(--cf-ink)] transition-colors"
+          >Revue</a>
+          <a
+            routerLink="/admin/audit"
+            routerLinkActive="text-[color:var(--cf-ink)] bg-[color:var(--cf-line)]/40"
+            class="rounded-full px-3 py-1.5 text-[color:var(--cf-ink-soft)] hover:text-[color:var(--cf-ink)] transition-colors"
+          >Audit</a>
+          <a
+            routerLink="/admin/files"
+            routerLinkActive="text-[color:var(--cf-ink)] bg-[color:var(--cf-line)]/40"
+            class="rounded-full px-3 py-1.5 text-[color:var(--cf-ink-soft)] hover:text-[color:var(--cf-ink)] transition-colors"
+          >Fichiers</a>
+        }
       </nav>
+
+      <div class="flex items-center gap-3 text-sm">
+        @if (auth.isLoggedIn()) {
+          <span class="flex items-center gap-2 text-[color:var(--cf-ink-soft)]">
+            <span class="font-mono text-xs">{{ auth.userName() }}</span>
+            @if (auth.isAdmin()) {
+              <span class="rounded-full border border-[color:var(--cf-teal)] text-[color:var(--cf-teal)] px-2 py-0.5 text-[10px] uppercase tracking-widest">admin</span>
+            } @else {
+              <span class="rounded-full border cf-hairline text-[color:var(--cf-ink-soft)] px-2 py-0.5 text-[10px] uppercase tracking-widest">patient</span>
+            }
+          </span>
+          <button type="button" (click)="auth.logout()" class="cf-btn-ghost">Déconnexion</button>
+        } @else {
+          <button type="button" (click)="auth.login()" class="cf-btn-primary">Se connecter</button>
+        }
+      </div>
     </div>
   </header>
 
-  <main class="flex-1 max-w-5xl w-full mx-auto px-6 py-8">
+  <main class="flex-1 max-w-6xl w-full mx-auto px-6 py-10 cf-fade-up">
     <router-outlet />
   </main>
 
-  <div class="fixed top-4 right-4 flex flex-col gap-2 z-50 w-96 max-w-full">
+  <footer class="border-t cf-hairline mt-16">
+    <div class="max-w-6xl mx-auto px-6 py-6 flex items-center justify-between text-xs text-[color:var(--cf-ink-soft)]">
+      <span class="font-mono">careflow · v0.1.0 · poc</span>
+      <span>Décisions déterministes · Audit append-only · Hexagonal</span>
+    </div>
+  </footer>
+
+  <div
+    class="fixed top-6 right-6 flex flex-col gap-3 z-50 w-[22rem] max-w-[calc(100vw-3rem)]"
+    aria-live="polite"
+    aria-atomic="true"
+  >
     @for (n of notifications.notifications(); track n.id) {
       <div
-        class="rounded-lg shadow-lg border px-4 py-3 flex items-start gap-3 bg-white"
-        [class.border-emerald-300]="n.severity === 'success'"
-        [class.border-red-300]="n.severity === 'error'"
-        [class.border-slate-200]="n.severity === 'info'"
+        class="cf-surface cf-toast-in flex items-start gap-3 px-4 py-3 shadow-[0_20px_50px_-25px_rgba(26,22,19,0.35)]"
+        [style.borderColor]="
+          n.severity === 'success' ? 'var(--cf-moss)' :
+          n.severity === 'error' ? 'var(--cf-clay)' :
+          'var(--cf-line-strong)'"
       >
         <span
-          class="mt-0.5 h-2.5 w-2.5 rounded-full flex-shrink-0"
-          [class.bg-emerald-500]="n.severity === 'success'"
-          [class.bg-red-500]="n.severity === 'error'"
-          [class.bg-slate-400]="n.severity === 'info'"
-        ></span>
-        <p class="flex-1 text-sm text-slate-800">{{ n.message }}</p>
+          class="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full flex-shrink-0"
+          [style.background]="
+            n.severity === 'success' ? 'rgba(77, 124, 15, 0.12)' :
+            n.severity === 'error' ? 'rgba(184, 84, 46, 0.12)' :
+            'rgba(15, 118, 110, 0.12)'"
+          [style.color]="
+            n.severity === 'success' ? 'var(--cf-moss)' :
+            n.severity === 'error' ? 'var(--cf-clay)' :
+            'var(--cf-teal)'"
+        >
+          @if (n.severity === 'success') {
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5">
+              <path fill-rule="evenodd" d="M16.704 5.29a.75.75 0 0 1 .006 1.06l-8.25 8.5a.75.75 0 0 1-1.08.008l-4.25-4.25a.75.75 0 1 1 1.06-1.06l3.708 3.708 7.746-7.972a.75.75 0 0 1 1.06-.006Z" clip-rule="evenodd" />
+            </svg>
+          } @else if (n.severity === 'error') {
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm1-11.5a1 1 0 0 0-2 0v4a1 1 0 0 0 2 0v-4ZM10 15a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd" />
+            </svg>
+          } @else {
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5">
+              <path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-3a1 1 0 1 0 0-2 1 1 0 0 0 0 2ZM9 9a1 1 0 0 0 0 2v3a1 1 0 0 0 1 1h1a1 1 0 1 0 0-2v-3a1 1 0 0 0-1-1H9Z" clip-rule="evenodd" />
+            </svg>
+          }
+        </span>
+        <p class="flex-1 text-sm text-[color:var(--cf-ink)] leading-relaxed">{{ n.message }}</p>
         <button
           type="button"
           (click)="notifications.dismiss(n.id)"
-          class="text-slate-400 hover:text-slate-600 text-sm"
+          class="text-[color:var(--cf-ink-soft)] hover:text-[color:var(--cf-ink)] text-lg leading-none"
           aria-label="Fermer"
         >×</button>
       </div>
     }
   </div>
+
+  <app-confirm-dialog />
 </div>

@@ -1,5 +1,7 @@
 package com.elgourmat.careflow.adapter.in.rest.error;
 
+import com.elgourmat.careflow.adapter.out.storage.StorageException;
+import com.elgourmat.careflow.domain.exception.AttachmentNotFoundException;
 import com.elgourmat.careflow.domain.exception.ClaimNotFoundException;
 import com.elgourmat.careflow.domain.exception.InvalidClaimAmountException;
 import com.elgourmat.careflow.domain.exception.InvalidClaimDateException;
@@ -85,6 +87,32 @@ class GlobalExceptionHandlerTest {
         assertThat(pd.getStatus()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR.value());
         assertThat(pd.getTitle()).isEqualTo("Internal server error");
         assertThat(pd.getDetail()).isEqualTo("An unexpected error occurred");
+    }
+
+    @Test
+    void handleAttachmentNotFound_returns_404_with_attachment_id_property() {
+        UUID id = UUID.randomUUID();
+
+        ProblemDetail pd = handler.handleAttachmentNotFound(new AttachmentNotFoundException(id));
+
+        assertThat(pd.getStatus()).isEqualTo(HttpStatus.NOT_FOUND.value());
+        assertThat(pd.getTitle()).isEqualTo("Attachment not found");
+        assertThat(pd.getDetail()).contains(id.toString());
+        assertThat(pd.getProperties()).containsEntry("attachmentId", id.toString());
+    }
+
+    @Test
+    void handleStorageFailure_returns_502_without_leaking_upstream_details() {
+        StorageException ex = new StorageException("Failed to upload object attachments/xyz",
+                new RuntimeException("minio credentials rejected — leak"));
+
+        ProblemDetail pd = handler.handleStorageFailure(ex);
+
+        assertThat(pd.getStatus()).isEqualTo(HttpStatus.BAD_GATEWAY.value());
+        assertThat(pd.getTitle()).isEqualTo("Storage failure");
+        assertThat(pd.getDetail()).isEqualTo("Storage backend is unavailable");
+        assertThat(pd.getDetail()).doesNotContain("minio credentials rejected");
+        assertThat(pd.getDetail()).doesNotContain("attachments/xyz");
     }
 
     private static final class DummyController {

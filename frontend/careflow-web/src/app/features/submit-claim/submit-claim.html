@@ -1,30 +1,33 @@
-<section class="max-w-xl mx-auto space-y-6">
-  <div>
-    <h1 class="text-2xl font-semibold text-slate-900">Nouvelle demande</h1>
-    <p class="text-sm text-slate-500">Le moteur de règles décide immédiatement du statut.</p>
-  </div>
+<section class="max-w-2xl mx-auto space-y-8">
+  <header class="space-y-2">
+    <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-[color:var(--cf-ink-soft)]">Étape 1 · Soumission</p>
+    <h1 class="font-display text-4xl md:text-5xl text-[color:var(--cf-ink)]">Nouvelle <span class="italic text-[color:var(--cf-teal)]">demande</span></h1>
+    <p class="text-sm text-[color:var(--cf-ink-soft)] max-w-md">
+      Le moteur applique une politique déterministe — décision immédiate ou envoi en revue humaine si le dossier nécessite un examen.
+    </p>
+  </header>
 
-  <form [formGroup]="form" (ngSubmit)="submit()" class="space-y-4 bg-white rounded-xl border border-slate-200 p-6">
+  <form [formGroup]="form" (ngSubmit)="submit()" class="cf-surface space-y-5 p-7">
     <div>
-      <label class="block text-sm font-medium text-slate-700 mb-1" for="patientId">Identifiant patient</label>
+      <label class="block font-mono text-[10px] uppercase tracking-widest text-[color:var(--cf-ink-soft)] mb-2" for="patientId">Identifiant patient</label>
       <input
         id="patientId"
         type="text"
         formControlName="patientId"
-        class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        class="cf-input"
       />
       @if (form.controls.patientId.touched && form.controls.patientId.invalid) {
-        <p class="text-xs text-red-600 mt-1">Identifiant requis (max 64 caractères).</p>
+        <p class="text-xs mt-1.5" [style.color]="'var(--cf-clay)'">Identifiant requis (max 64 caractères).</p>
       }
     </div>
 
     <div class="grid grid-cols-2 gap-4">
       <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1" for="careType">Type de soin</label>
+        <label class="block font-mono text-[10px] uppercase tracking-widest text-[color:var(--cf-ink-soft)] mb-2" for="careType">Type de soin</label>
         <select
           id="careType"
           formControlName="careType"
-          class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          class="cf-input appearance-none bg-white pr-8"
         >
           @for (t of careTypes; track t) {
             <option [value]="t">{{ t }}</option>
@@ -33,55 +36,117 @@
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1" for="careDate">Date de soin</label>
+        <label class="block font-mono text-[10px] uppercase tracking-widest text-[color:var(--cf-ink-soft)] mb-2" for="careDate">Date de soin</label>
         <input
           id="careDate"
           type="date"
           formControlName="careDate"
-          class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          class="cf-input"
         />
       </div>
     </div>
 
     <div class="grid grid-cols-[1fr_120px] gap-4">
       <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1" for="amount">Montant</label>
+        <label class="block font-mono text-[10px] uppercase tracking-widest text-[color:var(--cf-ink-soft)] mb-2" for="amount">Montant</label>
         <input
           id="amount"
           type="number"
           step="0.01"
           min="0.01"
           formControlName="amount"
-          class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          class="cf-input"
         />
         @if (form.controls.amount.touched && form.controls.amount.invalid) {
-          <p class="text-xs text-red-600 mt-1">Le montant doit être strictement positif.</p>
+          <p class="text-xs mt-1.5" [style.color]="'var(--cf-clay)'">Le montant doit être strictement positif.</p>
         }
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1" for="currency">Devise</label>
+        <label class="block font-mono text-[10px] uppercase tracking-widest text-[color:var(--cf-ink-soft)] mb-2" for="currency">Devise</label>
         <input
           id="currency"
           type="text"
           formControlName="currency"
           maxlength="3"
-          class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm uppercase focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          class="cf-input uppercase font-mono"
         />
       </div>
     </div>
 
-    <div class="flex items-center justify-end gap-3 pt-2">
-      <button
-        type="button"
-        (click)="form.reset()"
-        class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-      >Réinitialiser</button>
-      <button
-        type="submit"
-        [disabled]="submitting()"
-        class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-      >{{ submitting() ? 'Envoi…' : 'Soumettre' }}</button>
+    <div class="pt-2 space-y-3">
+      <label class="block font-mono text-[10px] uppercase tracking-widest text-[color:var(--cf-ink-soft)]">Justificatifs · facture, ordonnance, feuille de soins</label>
+      <div
+        (dragover)="onDragOver($event)"
+        (dragleave)="onDragLeave($event)"
+        (drop)="onDrop($event)"
+        class="rounded-xl border-2 border-dashed p-8 text-center transition-all"
+        [style.borderColor]="dragOver() ? 'var(--cf-teal)' : 'var(--cf-line-strong)'"
+        [style.background]="dragOver() ? 'var(--cf-teal-soft)' : 'transparent'"
+      >
+        <div class="mx-auto inline-flex h-11 w-11 items-center justify-center rounded-full border cf-hairline mb-3 bg-white">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-5 w-5 text-[color:var(--cf-teal)]">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.338-2.32 5.75 5.75 0 0 1 .916 11.09H6.75Z" />
+          </svg>
+        </div>
+        <p class="text-sm text-[color:var(--cf-ink)]">
+          Glissez vos fichiers ici, ou
+          <label class="text-[color:var(--cf-teal)] font-medium cursor-pointer hover:underline">
+            parcourez
+            <input type="file" multiple (change)="onFilesSelected($event)" class="hidden" />
+          </label>
+        </p>
+        <p class="text-xs text-[color:var(--cf-ink-soft)] mt-1.5">PDF · images · tout format ≤ 10 Mo</p>
+      </div>
+
+      @if (queuedFiles().length > 0) {
+        <ul class="cf-surface divide-y cf-hairline overflow-hidden">
+          @for (f of queuedFiles(); track f.name; let i = $index) {
+            <li class="flex items-center gap-3 px-4 py-3 text-sm">
+              <span class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[color:var(--cf-line)]/50 flex-shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-4 w-4 text-[color:var(--cf-ink-soft)]">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                </svg>
+              </span>
+              <div class="min-w-0 flex-1">
+                <div class="font-mono text-xs text-[color:var(--cf-ink)] truncate">{{ f.name }}</div>
+                <div class="text-[11px] text-[color:var(--cf-ink-soft)] font-mono">
+                  {{ f.type || 'application/octet-stream' }} · {{ kilobytes(f.size) | number: '1.1-1' }} Ko
+                </div>
+              </div>
+              <button
+                type="button"
+                (click)="removeFile(i)"
+                class="cf-btn-danger"
+                [disabled]="submitting()"
+              >Retirer</button>
+            </li>
+          }
+        </ul>
+      }
+    </div>
+
+    <div class="flex items-center justify-between gap-3 pt-4 border-t cf-hairline">
+      <p class="text-xs text-[color:var(--cf-ink-soft)] font-mono">Décision immédiate · règles déterministes</p>
+      <div class="flex items-center gap-2">
+        <button
+          type="button"
+          (click)="form.reset(); queuedFiles.set([])"
+          class="cf-btn-ghost"
+          [disabled]="submitting()"
+        >Réinitialiser</button>
+        <button type="submit" [disabled]="submitting()" class="cf-btn-primary">
+          @if (submitting()) {
+            <span class="inline-block h-3 w-3 rounded-full border-2 border-white/40 border-t-white animate-spin"></span>
+            Envoi…
+          } @else {
+            Soumettre
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5">
+              <path fill-rule="evenodd" d="M3 10a.75.75 0 0 1 .75-.75h10.638L10.23 5.29a.75.75 0 1 1 1.04-1.08l5.5 5.25a.75.75 0 0 1 0 1.08l-5.5 5.25a.75.75 0 1 1-1.04-1.08l4.158-3.96H3.75A.75.75 0 0 1 3 10Z" clip-rule="evenodd" />
+            </svg>
+          }
+        </button>
+      </div>
     </div>
   </form>
 </section>

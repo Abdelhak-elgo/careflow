@@ -1,7 +1,13 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { ClaimResponse, ClaimStatus, SubmitClaimRequest } from '../models/claim.models';
+import {
+  AdminDecisionRequest,
+  ClaimResponse,
+  ClaimStatus,
+  SubmitClaimRequest,
+  UpdateClaimRequest,
+} from '../models/claim.models';
 
 @Injectable({ providedIn: 'root' })
 export class ClaimService {
@@ -22,5 +28,13 @@ export class ClaimService {
 
   getById(id: string): Observable<ClaimResponse> {
     return this.http.get<ClaimResponse>(`${this.baseUrl}/${id}`);
+  }
+
+  decide(id: string, request: AdminDecisionRequest): Observable<ClaimResponse> {
+    return this.http.patch<ClaimResponse>(`${this.baseUrl}/${id}/decision`, request);
+  }
+
+  update(id: string, request: UpdateClaimRequest): Observable<ClaimResponse> {
+    return this.http.patch<ClaimResponse>(`${this.baseUrl}/${id}`, request);
   }
 }

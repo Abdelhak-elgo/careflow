@@ -1,63 +1,103 @@
-<section class="space-y-6">
-  <div class="flex items-center justify-between">
-    <div>
-      <h1 class="text-2xl font-semibold text-slate-900">Tableau de bord</h1>
-      <p class="text-sm text-slate-500">Historique des demandes de remboursement.</p>
+<section class="space-y-10">
+  <header class="flex items-end justify-between gap-6 flex-wrap">
+    <div class="space-y-2">
+      <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-[color:var(--cf-ink-soft)]">Historique</p>
+      <h1 class="font-display text-4xl md:text-5xl text-[color:var(--cf-ink)]">
+        Vos demandes
+      </h1>
+      <p class="text-sm text-[color:var(--cf-ink-soft)] max-w-md">
+        Suivi en temps réel des remboursements soumis, décidés ou en attente de revue.
+      </p>
     </div>
-    <a
-      routerLink="/submit"
-      class="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
-    >Nouvelle demande</a>
-  </div>
+    <a routerLink="/submit" class="cf-btn-primary">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+        <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
+      </svg>
+      Nouvelle demande
+    </a>
+  </header>
 
-  <div class="flex flex-wrap gap-2">
+  <div class="flex items-center gap-2 flex-wrap">
+    <span class="font-mono text-[10px] uppercase tracking-[0.2em] text-[color:var(--cf-ink-soft)] mr-2">Filtrer</span>
     @for (s of statuses; track s) {
       <button
         type="button"
         (click)="selectStatus(s)"
-        class="rounded-full border px-3 py-1 text-sm transition"
-        [class.bg-slate-900]="activeStatus() === s"
-        [class.text-white]="activeStatus() === s"
-        [class.border-slate-900]="activeStatus() === s"
-        [class.bg-white]="activeStatus() !== s"
-        [class.text-slate-700]="activeStatus() !== s"
-        [class.border-slate-300]="activeStatus() !== s"
+        class="rounded-full px-3.5 py-1.5 text-xs font-medium transition-all border"
+        [style.background]="activeStatus() === s ? 'var(--cf-ink)' : 'transparent'"
+        [style.color]="activeStatus() === s ? 'var(--cf-bone-soft)' : 'var(--cf-ink-soft)'"
+        [style.borderColor]="activeStatus() === s ? 'var(--cf-ink)' : 'var(--cf-line-strong)'"
       >{{ s === 'ALL' ? 'Toutes' : s }}</button>
     }
   </div>
 
-  <div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+  <div class="cf-surface overflow-hidden">
     @if (loading()) {
-      <div class="p-8 text-center text-slate-500 text-sm">Chargement…</div>
+      <div class="p-12 text-center">
+        <div class="inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-[color:var(--cf-line-strong)] border-t-[color:var(--cf-teal)] animate-spin"></div>
+        <p class="mt-3 text-sm text-[color:var(--cf-ink-soft)]">Chargement des demandes…</p>
+      </div>
     } @else if (isEmpty()) {
-      <div class="p-8 text-center text-slate-500 text-sm">Aucune demande pour ce filtre.</div>
+      <div class="p-14 text-center space-y-3">
+        <div class="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-full bg-[color:var(--cf-line)]/60">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-7 w-7 text-[color:var(--cf-ink-soft)]">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414a1 1 0 0 1 .293.707V19a2 2 0 0 1-2 2Z" />
+          </svg>
+        </div>
+        <p class="font-display text-lg text-[color:var(--cf-ink)]">Aucune demande pour ce filtre</p>
+        <p class="text-sm text-[color:var(--cf-ink-soft)]">Soumettez votre premier remboursement pour démarrer.</p>
+        <a routerLink="/submit" class="cf-btn-ghost mt-4">Nouvelle demande</a>
+      </div>
     } @else {
       <table class="w-full text-sm">
-        <thead class="bg-slate-50 text-slate-600 text-left">
-          <tr>
-            <th class="px-4 py-3 font-medium">Date soin</th>
-            <th class="px-4 py-3 font-medium">Type</th>
-            <th class="px-4 py-3 font-medium text-right">Montant</th>
-            <th class="px-4 py-3 font-medium">Statut</th>
-            <th class="px-4 py-3 font-medium">Raison</th>
-            <th class="px-4 py-3 font-medium">Soumise le</th>
+        <thead>
+          <tr class="border-b cf-hairline text-left">
+            <th class="px-5 py-3 font-mono text-[10px] uppercase tracking-widest text-[color:var(--cf-ink-soft)]">Date soin</th>
+            <th class="px-5 py-3 font-mono text-[10px] uppercase tracking-widest text-[color:var(--cf-ink-soft)]">Type</th>
+            <th class="px-5 py-3 font-mono text-[10px] uppercase tracking-widest text-[color:var(--cf-ink-soft)] text-right">Montant</th>
+            <th class="px-5 py-3 font-mono text-[10px] uppercase tracking-widest text-[color:var(--cf-ink-soft)]">Statut</th>
+            <th class="px-5 py-3 font-mono text-[10px] uppercase tracking-widest text-[color:var(--cf-ink-soft)]">Motif</th>
+            <th class="px-5 py-3 font-mono text-[10px] uppercase tracking-widest text-[color:var(--cf-ink-soft)]">Soumise</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-slate-100">
+        <tbody>
           @for (claim of rows(); track claim.id) {
-            <tr class="hover:bg-slate-50">
-              <td class="px-4 py-3">{{ claim.careDate | date: 'dd/MM/yyyy' }}</td>
-              <td class="px-4 py-3">{{ claim.careType }}</td>
-              <td class="px-4 py-3 text-right tabular-nums">
-                {{ claim.amount | number: '1.2-2' }} {{ claim.currency }}
+            <tr
+              class="border-b cf-hairline last:border-b-0 cursor-pointer transition-colors hover:bg-[color:var(--cf-line)]/30"
+              [routerLink]="['/claims', claim.id]"
+            >
+              <td class="px-5 py-4 text-[color:var(--cf-ink)]">{{ claim.careDate | date: 'dd MMM yyyy' }}</td>
+              <td class="px-5 py-4">
+                <span class="font-mono text-xs text-[color:var(--cf-ink-soft)]">{{ claim.careType }}</span>
               </td>
-              <td class="px-4 py-3">
-                <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium" [class]="statusClasses(claim.status)">
+              <td class="px-5 py-4 text-right">
+                <span class="font-mono tabular-nums text-[color:var(--cf-ink)] font-medium">{{ claim.amount | number: '1.2-2' }}</span>
+                <span class="ml-1 font-mono text-xs text-[color:var(--cf-ink-soft)]">{{ claim.currency }}</span>
+              </td>
+              <td class="px-5 py-4">
+                <span
+                  class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
+                  [style.background]="
+                    claim.status === 'APPROVED' ? 'rgba(77, 124, 15, 0.10)' :
+                    claim.status === 'REJECTED' ? 'rgba(184, 84, 46, 0.10)' :
+                    'rgba(161, 101, 14, 0.10)'"
+                  [style.color]="
+                    claim.status === 'APPROVED' ? 'var(--cf-moss)' :
+                    claim.status === 'REJECTED' ? 'var(--cf-clay)' :
+                    'var(--cf-amber)'"
+                >
+                  <span
+                    class="h-1.5 w-1.5 rounded-full"
+                    [style.background]="
+                      claim.status === 'APPROVED' ? 'var(--cf-moss)' :
+                      claim.status === 'REJECTED' ? 'var(--cf-clay)' :
+                      'var(--cf-amber)'"
+                  ></span>
                   {{ claim.status }}
                 </span>
               </td>
-              <td class="px-4 py-3 text-slate-500">{{ claim.decisionReason ?? '—' }}</td>
-              <td class="px-4 py-3 text-slate-500">{{ claim.submittedAt | date: 'dd/MM/yyyy HH:mm' }}</td>
+              <td class="px-5 py-4 text-[color:var(--cf-ink-soft)] max-w-xs truncate">{{ claim.decisionReason ?? '—' }}</td>
+              <td class="px-5 py-4 text-[color:var(--cf-ink-soft)] font-mono text-xs">{{ claim.submittedAt | date: 'dd/MM · HH:mm' }}</td>
             </tr>
           }
         </tbody>

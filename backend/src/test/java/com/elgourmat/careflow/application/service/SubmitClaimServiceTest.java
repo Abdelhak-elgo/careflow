@@ -1,6 +1,7 @@
 package com.elgourmat.careflow.application.service;
 
 import com.elgourmat.careflow.application.port.in.SubmitClaimUseCase.SubmitClaimCommand;
+import com.elgourmat.careflow.application.port.out.AuditPort;
 import com.elgourmat.careflow.application.port.out.ClaimRepository;
 import com.elgourmat.careflow.domain.CareType;
 import com.elgourmat.careflow.domain.Claim;
@@ -37,11 +38,14 @@ class SubmitClaimServiceTest {
     @Mock
     private ClaimRepository claimRepository;
 
+    @Mock
+    private AuditPort auditPort;
+
     private SubmitClaimService service;
 
     @BeforeEach
     void setUp() {
-        service = new SubmitClaimService(rulesEngine, claimRepository, FIXED_CLOCK);
+        service = new SubmitClaimService(rulesEngine, claimRepository, auditPort, FIXED_CLOCK);
     }
 
     @Test

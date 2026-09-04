@@ -2,10 +2,13 @@ package com.elgourmat.careflow.adapter.in.rest;
 
 import com.elgourmat.careflow.adapter.in.rest.error.GlobalExceptionHandler;
 import com.elgourmat.careflow.adapter.in.rest.mapper.ClaimRestMapperImpl;
+import com.elgourmat.careflow.adapter.out.persistence.IdempotencyKeyStore;
+import com.elgourmat.careflow.application.port.in.DecideClaimUseCase;
 import com.elgourmat.careflow.application.port.in.GetClaimUseCase;
 import com.elgourmat.careflow.application.port.in.ListClaimsUseCase;
 import com.elgourmat.careflow.application.port.in.SubmitClaimUseCase;
 import com.elgourmat.careflow.application.port.in.SubmitClaimUseCase.SubmitClaimCommand;
+import com.elgourmat.careflow.application.port.in.UpdateClaimUseCase;
 import com.elgourmat.careflow.domain.CareType;
 import com.elgourmat.careflow.domain.Claim;
 import com.elgourmat.careflow.domain.ClaimStatus;
@@ -13,9 +16,11 @@ import com.elgourmat.careflow.domain.Money;
 import com.elgourmat.careflow.domain.exception.ClaimNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -39,6 +44,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(ClaimController.class)
+@AutoConfigureMockMvc(addFilters = false)
+@ActiveProfiles("test")
 @Import({ClaimRestMapperImpl.class, GlobalExceptionHandler.class})
 class ClaimControllerTest {
 
@@ -55,6 +62,15 @@ class ClaimControllerTest {
 
     @MockitoBean
     private GetClaimUseCase getClaimUseCase;
+
+    @MockitoBean
+    private DecideClaimUseCase decideClaimUseCase;
+
+    @MockitoBean
+    private UpdateClaimUseCase updateClaimUseCase;
+
+    @MockitoBean
+    private IdempotencyKeyStore idempotencyKeys;
 
     @Test
     void POST_valid_returns_201_with_response_body() throws Exception {
@@ -164,6 +180,145 @@ class ClaimControllerTest {
         mockMvc.perform(get("/api/claims"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(2)));
+    }
+
+    @Test
+    void POST_without_idempotency_key_bypasses_store() throws Exception {
+        Claim decided = decidedClaim(ClaimStatus.APPROVED, "auto", new BigDecimal("50"));
+        given(submitClaimUseCase.submit(any(SubmitClaimCommand.class))).willReturn(decided);
+
+        mockMvc.perform(post("/api/claims")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payloadJson("50.00")))
+                .andExpect(status().isCreated());
+
+        org.mockito.Mockito.verify(idempotencyKeys, org.mockito.Mockito.never())
+                .lookup(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString());
+        org.mockito.Mockito.verify(idempotencyKeys, org.mockito.Mockito.never())
+                .store(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(UUID.class));
+    }
+
+    @Test
+    void POST_with_new_idempotency_key_submits_and_stores() throws Exception {
+        Claim decided = decidedClaim(ClaimStatus.APPROVED, "auto", new BigDecimal("50"));
+        given(idempotencyKeys.lookup("ik_first", IdempotencyKeyStore.RESOURCE_CLAIM)).willReturn(Optional.empty());
+        given(submitClaimUseCase.submit(any(SubmitClaimCommand.class))).willReturn(decided);
+
+        mockMvc.perform(post("/api/claims")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Idempotency-Key", "ik_first")
+                        .content(payloadJson("50.00")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(decided.id().toString()));
+
+        org.mockito.Mockito.verify(idempotencyKeys).store("ik_first", IdempotencyKeyStore.RESOURCE_CLAIM, decided.id());
+    }
+
+    @Test
+    void POST_with_replayed_idempotency_key_returns_cached_claim_without_resubmitting() throws Exception {
+        Claim cached = decidedClaim(ClaimStatus.APPROVED, "auto", new BigDecimal("50"));
+        given(idempotencyKeys.lookup("ik_replay", IdempotencyKeyStore.RESOURCE_CLAIM)).willReturn(Optional.of(cached.id()));
+        given(getClaimUseCase.getById(cached.id())).willReturn(cached);
+
+        mockMvc.perform(post("/api/claims")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Idempotency-Key", "ik_replay")
+                        .content(payloadJson("50.00")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(cached.id().toString()));
+
+        org.mockito.Mockito.verify(submitClaimUseCase, org.mockito.Mockito.never()).submit(any(SubmitClaimCommand.class));
+        org.mockito.Mockito.verify(idempotencyKeys, org.mockito.Mockito.never())
+                .store(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(UUID.class));
+    }
+
+    @Test
+    void PATCH_decision_returns_200_and_decides_claim() throws Exception {
+        Claim decided = decidedClaim(ClaimStatus.APPROVED, "reçu OK", new BigDecimal("300"));
+        given(decideClaimUseCase.decide(any(com.elgourmat.careflow.application.port.in.DecideClaimUseCase.DecideClaimCommand.class)))
+                .willReturn(decided);
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .patch("/api/claims/{id}/decision", decided.id())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", "admin-01")
+                        .content("""
+                                { "decision": "APPROVED", "reason": "reçu OK" }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("APPROVED"))
+                .andExpect(jsonPath("$.decisionReason").value("reçu OK"));
+    }
+
+    @Test
+    void PATCH_decision_with_blank_reason_returns_400() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .patch("/api/claims/{id}/decision", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "decision": "APPROVED", "reason": "" }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.violations[0].field").value("reason"));
+    }
+
+    @Test
+    void PATCH_decision_on_already_decided_claim_returns_409_problem_detail() throws Exception {
+        UUID id = UUID.randomUUID();
+        given(decideClaimUseCase.decide(any(com.elgourmat.careflow.application.port.in.DecideClaimUseCase.DecideClaimCommand.class)))
+                .willThrow(new com.elgourmat.careflow.domain.exception.IllegalClaimStateException(
+                        id, ClaimStatus.APPROVED, "Claim " + id + " is already APPROVED and cannot be re-decided"));
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .patch("/api/claims/{id}/decision", id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "decision": "REJECTED", "reason": "trying to override" }
+                                """))
+                .andExpect(status().isConflict())
+                .andExpect(header().string("Content-Type", MediaType.APPLICATION_PROBLEM_JSON_VALUE))
+                .andExpect(jsonPath("$.title").value("Illegal claim state"))
+                .andExpect(jsonPath("$.currentStatus").value("APPROVED"));
+    }
+
+    @Test
+    void PATCH_update_returns_200_and_persists_new_fields() throws Exception {
+        Claim updated = decidedClaim(ClaimStatus.PENDING, null, new BigDecimal("300"));
+        given(updateClaimUseCase.update(any(UpdateClaimUseCase.UpdateClaimCommand.class))).willReturn(updated);
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .patch("/api/claims/{id}", updated.id())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Id", "patient-42")
+                        .content("""
+                                { "patientId": "patient-99", "careDate": "2026-08-20" }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(updated.id().toString()));
+    }
+
+    @Test
+    void PATCH_update_with_blank_patient_returns_400() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .patch("/api/claims/{id}", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "patientId": "", "careDate": "2026-08-20" }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.violations[0].field").value("patientId"));
+    }
+
+    private static String payloadJson(String amount) {
+        return """
+                {
+                  "patientId": "patient-42",
+                  "careType": "DENTAL",
+                  "amount": %s,
+                  "currency": "EUR",
+                  "careDate": "2026-08-15"
+                }
+                """.formatted(amount);
     }
 
     private static Claim decidedClaim(ClaimStatus status, String reason, BigDecimal amount) {

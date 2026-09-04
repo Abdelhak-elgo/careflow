@@ -1,11 +1,13 @@
 package com.elgourmat.careflow.domain;
 
+import com.elgourmat.careflow.domain.exception.IllegalClaimStateException;
 import com.elgourmat.careflow.domain.exception.InvalidClaimDateException;
 
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 public record Claim(
@@ -73,5 +75,42 @@ public record Claim(
                 submittedAt,
                 Instant.now(clock)
         );
+    }
+
+    private static final Set<ClaimStatus> MANUAL_DECISION_TARGETS =
+            Set.of(ClaimStatus.APPROVED, ClaimStatus.REJECTED);
+
+    public Claim manualDecision(ClaimStatus newStatus, String reason, Clock clock) {
+        Objects.requireNonNull(newStatus, "newStatus is required");
+        Objects.requireNonNull(reason, "reason is required");
+        if (reason.isBlank()) {
+            throw new IllegalArgumentException("reason must not be blank for a manual decision");
+        }
+        if (status != ClaimStatus.PENDING) {
+            throw new IllegalClaimStateException(id, status,
+                    "Claim " + id + " is already " + status + " and cannot be re-decided");
+        }
+        if (!MANUAL_DECISION_TARGETS.contains(newStatus)) {
+            throw new IllegalClaimStateException(id, status,
+                    "Manual decision must target APPROVED or REJECTED, was " + newStatus);
+        }
+        return decide(newStatus, reason, clock);
+    }
+
+    public Claim updatePatientInfo(String newPatientId, LocalDate newCareDate, Clock clock) {
+        Objects.requireNonNull(newPatientId, "patientId is required");
+        Objects.requireNonNull(newCareDate, "careDate is required");
+        Objects.requireNonNull(clock, "clock is required");
+        if (newPatientId.isBlank()) {
+            throw new IllegalArgumentException("patientId must not be blank");
+        }
+        if (status != ClaimStatus.PENDING) {
+            throw new IllegalClaimStateException(id, status,
+                    "Claim " + id + " is " + status + " and can no longer be edited");
+        }
+        if (newCareDate.isAfter(LocalDate.now(clock))) {
+            throw new InvalidClaimDateException("careDate must not be in the future, was: " + newCareDate);
+        }
+        return new Claim(id, newPatientId, careType, money, newCareDate, status, decisionReason, submittedAt, decidedAt);
     }
 }

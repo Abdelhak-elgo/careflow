@@ -2,9 +2,7 @@
 
 Plateforme de remboursement de soins — un patient soumet une demande, un moteur de règles décide (`APPROVED` / `REJECTED` / `PENDING`).
 
-**Stack** : Spring Boot 3 · Java 21 · Angular 17 *(planifié)* · PostgreSQL 16 · Flyway · Testcontainers · Docker Compose.
-
-**Contexte** : exercice de 3 jours pour entretien Senior @ Theodo. Voir [Dette technique avouée](#dette-technique-avouée) pour le scope explicitement non couvert.
+**Stack** : Spring Boot 4 · Java 21 · Angular 17 · PostgreSQL 16 · Keycloak (OIDC) · MinIO (S3) · Flyway · MapStruct · Testcontainers · Docker Compose.
 
 ---
 
@@ -16,6 +14,7 @@ Plateforme de remboursement de soins — un patient soumet une demande, un moteu
 - [Démarrage local](#démarrage-local)
 - [API](#api)
 - [Tests](#tests)
+- [Sécurité & robustesse](#sécurité--robustesse)
 - [Production-ready](#production-ready)
 - [Dette technique avouée](#dette-technique-avouée)
 
@@ -74,32 +73,46 @@ HTTP POST
 
 | Couche | Techno |
 |---|---|
-| Backend | Spring Boot 3 · Spring Web MVC · Spring Data JPA · Flyway · MapStruct · Lombok · Springdoc OpenAPI |
+| Backend | Spring Boot 4 · Spring Web MVC · Spring Security (OAuth2 Resource Server) · Spring Data JPA · Flyway · MapStruct · Lombok · Springdoc OpenAPI · bucket4j (rate-limit) · MinIO SDK |
 | Tests | JUnit 5 · Mockito · Testcontainers (PostgreSQL) · `@WebMvcTest` · `@DataJpaTest` |
-| Frontend | Angular 17 · TailwindCSS · Jest *(arrive en Jour 3)* |
-| Infra locale | Docker Compose (Postgres 16.2) |
+| Frontend | Angular 17 (parcours patient + admin) |
+| Infra locale | Docker Compose : Postgres 16 · Keycloak 25 · MinIO (S3) · backend · frontend |
 
 ---
 
 ## Démarrage local
 
-### Backend
+### Full-stack via Docker Compose
 
 ```bash
-# 1. Démarrer Postgres (port 5444)
-docker compose up -d
+# Démarre Postgres + Keycloak + MinIO + backend + frontend
+docker compose up -d --build
+
+# UIs :
+open http://localhost:4200                       # Frontend Angular
+open http://localhost:8187/swagger-ui.html       # Swagger UI (backend)
+open http://localhost:9001                       # Console MinIO (minioadmin/minioadmin)
+open http://localhost:8080                       # Keycloak (admin/admin)
+```
+
+### Backend seul (dev)
+
+```bash
+# 1. Dépendances externes (Postgres port 5444, Keycloak 8080, MinIO 9000)
+docker compose up -d postgres keycloak minio minio-init
 
 # 2. Lancer l'app
 cd backend
-./mvnw spring-boot:run
-
-# 3. Swagger UI
-open http://localhost:8187/swagger-ui.html
+mvn spring-boot:run
 ```
 
-### Frontend
+### Frontend seul (dev)
 
-*À venir — l'app Angular sera initialisée en Jour 3 dans `frontend/`.*
+```bash
+cd frontend/careflow-web
+npm install
+npm start   # http://localhost:4200
+```
 
 ---
 
@@ -107,13 +120,38 @@ open http://localhost:8187/swagger-ui.html
 
 Contrat OpenAPI : `http://localhost:8187/v3/api-docs` · UI : `/swagger-ui.html`.
 
-| Verbe | Path | Description |
-|---|---|---|
-| `POST` | `/api/claims` | Soumettre une demande |
-| `GET`  | `/api/claims?status=PENDING` | Lister les demandes (filtre optionnel par statut) |
-| `GET`  | `/api/claims/{id}` | Récupérer une demande |
+### Claims
 
-**Convention MVP** : l'identité du patient est passée via le header `X-User-Id` (voir [Dette technique](#dette-technique-avouée)).
+| Verbe | Path | Auth | Description |
+|---|---|---|---|
+| `POST`  | `/api/claims` | patient | Soumettre une demande — supporte `Idempotency-Key`, rate-limité |
+| `GET`   | `/api/claims?status=PENDING` | patient | Lister (filtre optionnel par statut) |
+| `GET`   | `/api/claims/{id}` | patient | Récupérer une demande |
+| `PATCH` | `/api/claims/{id}` | patient | Corriger `patientId`/`careDate` si `PENDING` |
+| `PATCH` | `/api/claims/{id}/decision` | **admin** | Trancher manuellement — supporte `Idempotency-Key` |
+
+### Attachments (MinIO / S3)
+
+| Verbe | Path | Auth | Description |
+|---|---|---|---|
+| `POST`   | `/api/claims/{claimId}/attachments` | patient | Uploader (`multipart/form-data`) — supporte `Idempotency-Key`, rate-limité |
+| `GET`    | `/api/claims/{claimId}/attachments` | patient | Lister les pièces d'une demande |
+| `GET`    | `/api/attachments/{id}` | patient | Télécharger le binaire (stream depuis MinIO) |
+| `PATCH`  | `/api/attachments/{id}` | **admin** | Renommer |
+| `DELETE` | `/api/attachments/{id}` | **admin** | Supprimer (DB + objet S3) |
+| `GET`    | `/api/admin/attachments` | **admin** | Toutes les pièces jointes |
+
+### Audit
+
+| Verbe | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/admin/audit` | **admin** | Journal d'audit (append-only) |
+
+### Convention headers
+
+- `Authorization: Bearer <JWT>` — token OIDC émis par Keycloak (realm `careflow`).
+- `X-User-Id: <string>` — identité simulée (fallback MVP quand pas de token).
+- `Idempotency-Key: <opaque ≤128 chars>` — dedup serveur, TTL 24 h, sur `POST /api/claims`, `POST /api/claims/{id}/attachments`, `PATCH /api/claims/{id}/decision`.
 
 ---
 
@@ -134,32 +172,43 @@ Cible de couverture : **80%+ sur `domain/` et `application/`**.
 
 ---
 
+## Sécurité & robustesse
+
+Livré dans le POC (pas seulement documenté) :
+
+- **Auth OIDC** — Spring Security Resource Server valide les JWT émis par Keycloak (`realm careflow`). Rôle `ADMIN` requis sur les routes de décision, de rename/delete de pièces jointes et sur le journal d'audit.
+- **Idempotency-Key** — header opaque ≤ 128 chars, dedup serveur (TTL 24 h via job de nettoyage `IdempotencyCleanupJob`). Table `idempotency_key(resource_type, resource_id)` généralisée en V5 pour couvrir `CLAIM` et `ATTACHMENT` ; rejouer la même clé renvoie la ressource initiale sans effet de bord.
+- **Rate limiting** — bucket4j (token bucket) sur les endpoints d'écriture coûteux : `POST /api/claims`, `POST /api/claims/{id}/attachments`. Clé de bucket = `X-User-Id` sinon IP client. Réponses 429 en ProblemDetail RFC 7807 + `Retry-After` + `X-RateLimit-Remaining`.
+- **Audit trail append-only** — table `audit_log`, une ligne par action métier (submit / decide / update / upload / rename / delete) avec l'acteur, le type de ressource, et un JSON de détails.
+- **Storage S3** — MinIO en local (Docker), API S3-compatible. Le bucket `careflow-attachments` est créé automatiquement au démarrage (`MinioFileStorageAdapter#ensureBucket`) et pré-provisionné par `minio-init` en compose. Les binaires ne transitent jamais par la DB.
+- **Erreurs RFC 7807** — `GlobalExceptionHandler` : 400 (validation), 404 (`ClaimNotFoundException`, `AttachmentNotFoundException`), 409 (`IllegalClaimStateException`), 429 (rate-limit), 500 (fallback).
+- **Immutabilité domaine** — records + `withXxx` sur `ClaimAttachment`, `Money` en `BigDecimal`, jamais `double`.
+
 ## Production-ready
 
 Ce que je livrerais en plus si le projet allait en prod :
 
-- **Auth** — OIDC (Keycloak / Auth0), scopes `patient:read`, `claim:submit`, `claim:review`.
+- **Idempotency sur upload avec hash** — actuellement la clé mappe → attachment id. Idéal : hasher SHA-256 le fichier + composer avec la clé pour rejeter un même `Idempotency-Key` renvoyé avec un contenu différent.
 - **Traitement async** — publier `ClaimSubmittedEvent` sur Kafka pour découpler la validation manuelle des `PENDING` (worker dédié, retry policy, DLQ).
-- **Observability** — Micrometer + OpenTelemetry → Grafana/Tempo ; metrics métier `claim.submitted{status=…}`, `claim.decision.duration`.
-- **Idempotency** — header `Idempotency-Key` sur `POST /api/claims`, dedup serveur TTL 24 h.
+- **Observability** — Micrometer + OpenTelemetry → Grafana/Tempo ; metrics métier `claim.submitted{status=…}`, `claim.decision.duration`, `attachment.upload.bytes`.
 - **Versionning API** — préfixe `/api/v1/…` ; payload versionné en base pour tolérer l'évolution du domaine.
-- **Scalabilité** — read replica Postgres pour les `GET`, cache Redis sur listings filtrés, partitioning `claim` par `submitted_at` quand le volume explose.
-- **Résilience** — Resilience4j circuit breaker sur futurs appels externes (anti-fraude, scoring IA).
+- **Scalabilité** — read replica Postgres pour les `GET`, cache Redis sur listings filtrés, partitioning `claim` par `submitted_at` quand le volume explose. Rate-limit distribué via Redis (bucket4j-redis).
+- **Résilience** — Resilience4j circuit breaker sur futurs appels externes (anti-fraude, scoring IA, MinIO), retry exponentiel sur les uploads S3.
+- **Sécurité storage** — URLs pré-signées MinIO pour le download (offload la bande passante), scan antivirus (ClamAV) avant persistence en DB.
 - **CI/CD** — GitHub Actions : `build → test → sonar → deploy staging → e2e → deploy prod (manuel)`.
 
 ---
 
 ## Dette technique avouée
 
-Faute de temps sur les 3 jours, les éléments suivants sont **explicitement hors scope MVP** :
+Éléments **explicitement hors scope** de ce POC — à traiter avant tout déploiement en production :
 
-- **Authentification / autorisation** — simulée via header `X-User-Id`. En prod → OIDC.
-- **Rate limiting** — non implémenté. En prod → gateway (Kong / Spring Cloud Gateway) + bucket4j.
-- **Audit trail** — seulement `submitted_at` / `decided_at`. En prod → table `claim_event` append-only, ou Spring Data Envers.
-- **Notifications patient** (email, SMS) — hors scope. En prod → event → worker dédié.
-- **Front admin** (traitement des `PENDING`) — le front livré ne couvre que le parcours patient.
+- **Idempotency sur upload avec hash de contenu** — la clé mappe actuellement vers l'attachment id sans lier le contenu ; un rejeu avec un fichier différent renverrait l'ancien.
+- **Notifications patient** (email, SMS) — l'utilisateur n'est pas notifié lors d'un changement de statut.
 - **CI/CD** — pas de pipeline livré ; commandes locales documentées ci-dessus.
+- **Sécurité storage** — pas d'URLs pré-signées MinIO ni de scan antivirus (ClamAV) sur les uploads.
+- **Observability** — pas de metrics métier (Micrometer + OTel) ni de dashboards.
 
 ---
 
-**Auteur** : Abdelhak El Gourmat · Exercice pour entretien Senior @ Theodo.
+**Auteur** : Abdelhak El Gourmat.
