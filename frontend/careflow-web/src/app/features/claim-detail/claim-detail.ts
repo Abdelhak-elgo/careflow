@@ -8,6 +8,7 @@ import { ClaimResponse } from '../../core/models/claim.models';
 import { Attachment } from '../../core/models/attachment.models';
 import { AuthService } from '../../core/auth/auth.service';
 import { NotificationService } from '../../core/notifications/notification.service';
+import { ConfirmService } from '../../shared/confirm/confirm.service';
 
 @Component({
   selector: 'app-claim-detail',
@@ -21,6 +22,7 @@ export class ClaimDetail {
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
   private readonly notifications = inject(NotificationService);
+  private readonly confirmDialog = inject(ConfirmService);
   private readonly route = inject(ActivatedRoute);
   protected readonly auth = inject(AuthService);
 
@@ -127,8 +129,15 @@ export class ClaimDetail {
     });
   }
 
-  deleteAttachment(a: Attachment): void {
-    if (!confirm(`Supprimer "${a.originalName}" ?`)) return;
+  async deleteAttachment(a: Attachment): Promise<void> {
+    const accepted = await this.confirmDialog.ask({
+      title: 'Supprimer cette pièce jointe ?',
+      message: `« ${a.originalName} » sera retirée définitivement de la demande. Cette action est irréversible.`,
+      confirmLabel: 'Supprimer',
+      cancelLabel: 'Annuler',
+      tone: 'danger',
+    });
+    if (!accepted) return;
     this.attachmentsApi.delete(a.id).subscribe({
       next: () => {
         this.attachments.update((list) => list.filter((x) => x.id !== a.id));
@@ -143,10 +152,14 @@ export class ClaimDetail {
 
   statusClasses(status: string): string {
     switch (status) {
-      case 'APPROVED': return 'bg-emerald-100 text-emerald-800';
-      case 'REJECTED': return 'bg-red-100 text-red-800';
-      case 'PENDING': return 'bg-amber-100 text-amber-800';
-      default: return 'bg-slate-100 text-slate-800';
+      case 'APPROVED':
+        return 'bg-emerald-100 text-emerald-800';
+      case 'REJECTED':
+        return 'bg-red-100 text-red-800';
+      case 'PENDING':
+        return 'bg-amber-100 text-amber-800';
+      default:
+        return 'bg-slate-100 text-slate-800';
     }
   }
 }

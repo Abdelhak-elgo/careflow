@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 import { AttachmentService } from '../../core/api/attachment.service';
 import { Attachment } from '../../core/models/attachment.models';
 import { NotificationService } from '../../core/notifications/notification.service';
+import { ConfirmService } from '../../shared/confirm/confirm.service';
 
 @Component({
   selector: 'app-admin-files',
@@ -14,6 +15,7 @@ import { NotificationService } from '../../core/notifications/notification.servi
 export class AdminFiles {
   private readonly attachments = inject(AttachmentService);
   private readonly notifications = inject(NotificationService);
+  private readonly confirmDialog = inject(ConfirmService);
 
   protected readonly loading = signal(true);
   protected readonly items = signal<Attachment[]>([]);
@@ -71,8 +73,15 @@ export class AdminFiles {
     });
   }
 
-  delete(a: Attachment): void {
-    if (!confirm(`Supprimer "${a.originalName}" ?`)) return;
+  async delete(a: Attachment): Promise<void> {
+    const accepted = await this.confirmDialog.ask({
+      title: 'Supprimer cette pièce jointe ?',
+      message: `« ${a.originalName} » sera retirée définitivement du stockage et de la base. Action irréversible.`,
+      confirmLabel: 'Supprimer',
+      cancelLabel: 'Annuler',
+      tone: 'danger',
+    });
+    if (!accepted) return;
     this.attachments.delete(a.id).subscribe({
       next: () => {
         this.items.update((list) => list.filter((x) => x.id !== a.id));

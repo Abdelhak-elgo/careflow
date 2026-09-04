@@ -2,9 +2,163 @@
 
 :root {
   color-scheme: light;
+
+  --cf-bone: #f7f4ec;
+  --cf-bone-soft: #fbf9f4;
+  --cf-ink: #1a1613;
+  --cf-ink-soft: #5b524a;
+  --cf-line: #e5ded1;
+  --cf-line-strong: #d3c9b6;
+  --cf-teal: #0f766e;
+  --cf-teal-hover: #115e59;
+  --cf-teal-soft: #ccfbf1;
+  --cf-clay: #b8542e;
+  --cf-amber: #a1650e;
+  --cf-moss: #4d7c0f;
+
+  --cf-font-display: 'Fraunces', 'Iowan Old Style', 'Palatino', Georgia, serif;
+  --cf-font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --cf-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 body {
-  @apply bg-slate-50 text-slate-900 antialiased;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background:
+    radial-gradient(1200px 600px at 100% -10%, rgba(15, 118, 110, 0.05), transparent 60%),
+    radial-gradient(900px 500px at -10% 100%, rgba(184, 84, 46, 0.04), transparent 55%),
+    var(--cf-bone);
+  color: var(--cf-ink);
+  font-family: var(--cf-font-body);
+  font-feature-settings: 'ss01', 'cv11';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.font-display {
+  font-family: var(--cf-font-display);
+  font-optical-sizing: auto;
+  letter-spacing: -0.02em;
+}
+
+.font-mono,
+code,
+kbd,
+samp,
+pre {
+  font-family: var(--cf-font-mono);
+}
+
+.cf-surface {
+  background: #ffffffcc;
+  backdrop-filter: saturate(1.1) blur(6px);
+  border: 1px solid var(--cf-line);
+  border-radius: 14px;
+}
+
+.cf-hairline {
+  border-color: var(--cf-line);
+}
+
+.cf-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--cf-ink);
+  color: var(--cf-bone-soft);
+  padding: 0.55rem 1rem;
+  border-radius: 999px;
+  font-weight: 500;
+  font-size: 0.875rem;
+  transition: transform 120ms ease, background 120ms ease;
+}
+.cf-btn-primary:hover {
+  background: var(--cf-teal);
+  transform: translateY(-1px);
+}
+.cf-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.cf-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: transparent;
+  color: var(--cf-ink);
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid var(--cf-line-strong);
+  font-size: 0.875rem;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.cf-btn-ghost:hover {
+  background: #ffffff80;
+  border-color: var(--cf-ink);
+}
+
+.cf-btn-danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: transparent;
+  color: var(--cf-clay);
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: background 120ms ease;
+}
+.cf-btn-danger:hover {
+  background: #b8542e14;
+  border-color: #b8542e33;
+}
+
+.cf-input {
+  width: 100%;
+  background: #ffffff;
+  border: 1px solid var(--cf-line);
+  border-radius: 10px;
+  padding: 0.6rem 0.85rem;
+  font-size: 0.9rem;
+  color: var(--cf-ink);
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.cf-input:focus {
+  outline: none;
+  border-color: var(--cf-ink);
+  box-shadow: 0 0 0 3px rgba(26, 22, 19, 0.06);
+}
+
+@keyframes cf-fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.cf-fade-up {
+  animation: cf-fade-up 260ms ease-out both;
+}
+
+@keyframes cf-toast-in {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.cf-toast-in {
+  animation: cf-toast-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes cf-scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+.cf-scale-in {
+  animation: cf-scale-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cf-fade-up,
+  .cf-toast-in,
+  .cf-scale-in {
+    animation: none;
+  }
 }
