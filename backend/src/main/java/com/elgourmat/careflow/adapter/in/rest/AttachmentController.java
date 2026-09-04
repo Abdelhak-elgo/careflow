@@ -132,10 +132,9 @@ public class AttachmentController {
     }
 
     @DeleteMapping("/api/attachments/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Supprimer une pièce jointe (admin)")
+    @Operation(summary = "Supprimer une pièce jointe (auteur si claim PENDING, ou admin)")
     @ApiResponse(responseCode = "204", description = "Supprimée")
-    @ApiResponse(responseCode = "403", description = "Rôle ADMIN manquant")
+    @ApiResponse(responseCode = "409", description = "Claim déjà tranchée — suppression interdite (RFC 7807)")
     public ResponseEntity<Void> delete(@PathVariable UUID id) {
         attachmentUseCase.delete(id);
         return ResponseEntity.noContent().build();
